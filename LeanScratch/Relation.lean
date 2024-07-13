@@ -16,6 +16,7 @@ def isAntiSymm (R : α → α → Prop) := ∀ a, ∀ b, R a b → R b a → a =
 
 variable (R : α → β → Prop)
 
+def isInhabited := ∃ a, ∃ b, R a b
 def isFull := ∀ a, ∃ b, R a b
 
 def isFn    := ∀ a, ∀ b, R a b → ∀ c, R a c → b = c
@@ -55,6 +56,23 @@ theorem graph_isTotal : isTotal $ graph f := by
   · intro b holds_ab
     exact holds_ab.symm
 
+theorem full_isInhabited {R : α → β → Prop} [inst : Inhabited α] (full : isFull R) : isInhabited R := by
+  unfold isInhabited
+  unfold isFull at full
+  let a := inst.default
+  use a
+  rcases full a with ⟨b, p⟩
+  use b
+
+theorem full_fn_isTotal (full : isFull R) (fn : isFn R) : isTotal R := by
+  intro a
+  rcases full a with ⟨w, raw⟩
+  use w
+  constructor
+  · exact raw
+  · intro y ray
+    exact (fn a w raw y ray).symm
+
 theorem all_total_are_functional : isTotal R → isFn R := by
   intro h a b rab c rac
 
@@ -68,6 +86,25 @@ theorem all_total_are_functional : isTotal R → isFn R := by
   rfl
 
 def emptyRel (_ : α) (_ : β) := False
+
+theorem emptyRel_isFull_over_False : isFull $ (@emptyRel False v) := by
+  intro a
+  contradiction
+
+theorem isInhabited_iff_neempty : isInhabited R ↔ R ≠ emptyRel := by
+  constructor
+  · intro h r
+    rcases h with ⟨a, b, rab⟩
+    rw [r] at rab
+    unfold emptyRel at rab
+    exact rab
+  · intro h
+    unfold emptyRel at h
+    simp at h
+    by_contra!
+    sorry
+
+
 
 theorem emptyRel_is_symm : isSymm $ @emptyRel a a := by
   intro a b

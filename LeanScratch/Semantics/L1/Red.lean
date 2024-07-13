@@ -26,7 +26,6 @@ inductive Red : State → State → Prop
 
   | if_cond: Red ⟨condition, s⟩ ⟨condition', s'⟩ → Red ⟨.eif condition e1 e2, s⟩ ⟨.eif condition' e1 e2, s'⟩
 
-
 @[simp]
 theorem skip_op_int : Red ⟨.op (.skip) o e, s⟩ ⟨sta, stx⟩ → False := by
   intro h
@@ -124,12 +123,6 @@ theorem op_elim : Red ⟨.op lhs o rhs, s⟩ ⟨post, s'⟩ → (
     use lhs
     use e2'
 
-/- theorem red_antirefl : ¬Red ⟨a, sta⟩ ⟨a, stb⟩ := by -/
-/-   intro h -/
-/-   induction a -/
-/-   <;> cases h -/
-
-/- theorem red_det : Red ⟨e, s⟩ ⟨e₁, s₁⟩ ∧ Red ⟨e, s⟩ ⟨e₂, s₂⟩ → e₁ = e₂ ∧ s₁ = s₂ := by -/
 theorem red_det : Red i o₁ ∧ Red i o₂ → o₁ = o₂ := by
   intro ⟨ha, hb⟩
   induction ha generalizing o₂
@@ -137,13 +130,13 @@ theorem red_det : Red i o₁ ∧ Red i o₂ → o₁ = o₂ := by
   <;> try trivial
 
   case op1.op2 epre spre e₁ s₁ op eprealt ha a_ih e₂ s₂ epre_is_int hb => 
-    have ⟨_, p⟩ := (isInt_defn epre).mpr epre_is_int
+    have ⟨_, p⟩ := isInt_defn.mpr epre_is_int
     rw [p] at ha
     contradiction
 
   case op2.op1 epre spre e₁ s₁ e op ha e_is_int a_ih e₂ s₂ hb =>
-    have ⟨_, p⟩ := (isInt_defn epre).mpr epre_is_int
-    rw [p] at ha
+    have ⟨_, p⟩ := isInt_defn.mpr e_is_int
+    rw [p] at hb
     contradiction
 
   case op1.op1 epre spre e₁ s₁ o e2 ha a_ih e₂ s₂ hb =>
@@ -187,127 +180,4 @@ example : ¬(Red ⟨.op (.int 1) .add (.int 2), {}⟩ ⟨.int 2, {}⟩) := by
   intro a
   cases a
 
-def step: State → Option State
-  | ⟨.op (.int a) .add (.int b), s⟩ => some ⟨.int (a + b), s⟩
-  | ⟨.op (.int a) .gte (.int b), s⟩ => some ⟨.bool (a >= b), s⟩
-  | ⟨.op a op b, s⟩ => do
-    if a.isValue then
-      let ⟨step, s'⟩ ← step ⟨b, s⟩
-      pure ⟨.op a op step, s'⟩
-    else
-      let ⟨step, s'⟩ ← step ⟨a, s⟩
-      pure ⟨.op step op b, s'⟩
-  | ⟨.deref h, s⟩ => (⟨.int ·, s⟩) <$> s.find? h
-  | ⟨.assign addr (.int v), s⟩ => some ⟨.skip, s.insert addr v⟩
-  | ⟨.assign addr e, s⟩ => do
-    let ⟨e', s'⟩ ← step ⟨e, s⟩
-    pure ⟨.assign addr e', s'⟩
-
-  | ⟨.seq .skip e, s⟩ => some ⟨e, s⟩
-  | ⟨.seq e₁ e₂, s⟩ => do
-    let ⟨e₁', s'⟩ ← step ⟨e₁, s⟩
-    pure ⟨.seq e₁' e₂, s'⟩
-
-  | ⟨.eif (.bool true)  e1 _, s⟩ => some ⟨e1, s⟩
-  | ⟨.eif (.bool false) _ e1, s⟩ => some ⟨e1, s⟩
-
-  | ⟨.eif condition e1 e2, s⟩ => do
-    let ⟨condition', s'⟩ ← step ⟨condition, s⟩
-    pure ⟨.eif condition' e1 e2, s'⟩
-
-  | _ => none
-
-/- theorem red_is_step : Relation.optRel Red = Relation.graph step := by -/
-/-   apply funext₂ -/
-/-   intro pre post -/
-/-   apply propext -/
-
-/-   /- rcases pre with ⟨prestx, presta⟩ -/ -/
-
-/-   constructor -/
-/-   <;> cases post -/
-/-   <;> simp [Relation.optRel, Relation.graph] -/
-/-   <;> intro ih -/
-/-   case mpr.none => sorry -/
-/-     /- intro poststx poststa -/ -/
-/-     /- cases prestx -/ -/
-/-     /- <;> cases poststx  -/ -/
-/-     /- <;> try {  -/ -/
-/-     /-   by_contra! -/ -/
-/-     /-   contradiction -/ -/
-/-     /- } -/ -/
-/-     /- <;> sorry -/ -/
-
-/-   case mp.some post => -/
-/-     induction ih <;> try simp [step] <;> assumption -/
-/-     case op1 e s e' s' o e2 a a_ih => -/
-/-       by_cases h : ∃ v, e = .int v -/
-/-       · rcases h  with ⟨_, h⟩ -/
-/-         by_cases h2 : ∃ v, e2 = .int v -/
-/-         · rcases h2 with ⟨_, h2⟩ -/
-/-           rw [h, h2] -/
-/-           cases o -/
-/-           <;> simp [step] -/
-/-           <;> rw [h] at a -/
-/-           <;> trivial -/
-
-/-         · rw [h] -/
-          
-/-       · sorry -/
-/-     case op2 e2 e2' s e o a1 a => sorry -/
-/-     case assign2 => sorry -/
-/-     case seq2 => sorry -/
-/-     case if_cond => sorry -/
-
-/-   case mpr.some post => sorry -/
-/-   · constructor -/
-/-     · simp [Relation.optRel, Relation.graph] -/
-/-       intro h_red -/
-/-       rcases pre with ⟨stx, sta⟩ -/
-/-       induction stx <;> try simp only [step] -/
-/-       case op lhs op rhs lhs_ih rhs_ih => -/
-/-         cases op -/
-/-         · by_cases h : lhs.isValue -/
-/-           · sorry -/
-/-           · sorry -/
-/-         · sorry -/
-/-       case eif => sorry -/
-/-       case assign => sorry -/
-/-       case deref => sorry -/
-/-       case seq a b aih bih => -/
-/-         sorry -/
-/-     · sorry -/
-/-   case some post => -/
-/-     constructor -/
-/-     · intro ih -/
-/-       simp [Relation.optRel] at ih -/
-/-       simp [Relation.graph] -/
-/-       rcases pre with  ⟨stxpre,  stapre⟩ -/
-/-       rcases post with ⟨stxpost, stapost⟩ -/
-/-       cases stxpre <;> try contradiction -/
-/-       case op lhs op rhs => -/
-/-         cases op -/
-/-         · cases lhs -/
-/-           · cases ih <;> trivial -/
-/-             sorry -/
-
-/-           · sorry -/
-/-           · sorry -/
-/-           · sorry -/
-/-           · sorry -/
-/-           · sorry -/
-/-           · sorry -/
-/-           · sorry -/
-/-           · sorry -/
-          
-/-         · sorry -/
-        
-
-/-       case eif => sorry -/
-/-       case assign => sorry -/
-/-       case deref => sorry -/
-/-       case seq => sorry -/
-
-
-/-     · sorry -/
 

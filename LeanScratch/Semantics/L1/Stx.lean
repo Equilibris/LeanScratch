@@ -22,7 +22,7 @@ def Expr.isInt : Expr → Bool
   | .int _ => true
   | _ => false
 
-theorem isInt_defn (e : Expr) : (∃ i, e = .int i) ↔ e.isInt := by
+theorem isInt_defn {e : Expr} : (∃ i, e = .int i) ↔ e.isInt := by
   constructor
   <;> intro h
   · rcases h with ⟨_, h⟩
