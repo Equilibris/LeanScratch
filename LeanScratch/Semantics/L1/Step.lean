@@ -38,6 +38,9 @@ def step: State → Option State
       let ⟨condition, s⟩ ← step ⟨condition, s⟩
       pure ⟨.eif condition e₁ e₂, s⟩
 
+  | ⟨.ewhile c body, s⟩ =>
+      some ⟨.eif c (.seq body (.ewhile c body)) .skip, s⟩
+
   | _ => none
 
 lemma step_skip_none : step ⟨.skip, s⟩ = none := by
@@ -53,7 +56,7 @@ lemma forall_eq_none : (∀ a b, ¬(o = some (Prod.mk a b))) → (o = none) := b
   intro h
   exact Option.eq_none_iff_forall_not_mem.mpr fun a ↦ h a.1 a.2
 
-theorem eqMpNone {epre : Expr} {spre : HashMap String ℤ}
+theorem red_is_step.eqMpNone {epre : Expr} {spre : HashMap String ℤ}
     (ih : ∀ (e' : Expr) (s' : HashMap String ℤ), ¬Red (epre, spre) (e', s')) : step (epre, spre) = none := by
   induction epre generalizing spre
   <;> try simp only [step]
@@ -138,8 +141,13 @@ theorem eqMpNone {epre : Expr} {spre : HashMap String ℤ}
       cases a
       <;> simp only [step, ih_a, Option.pure_def, Option.bind_eq_bind, Option.none_bind]
       exact ih b spre (.seq1)
+  case ewhile =>
+    exact ih _ _ .ewhile
 
-theorem eqMprNone {epre : Expr} {spre : HashMap String ℤ} (ih : step (epre, spre) = none) (e' : Expr) :
+/-- info: 'red_is_step.eqMpNone' depends on axioms: [propext, Quot.sound, Classical.choice] -/
+#guard_msgs in #print axioms red_is_step.eqMpNone
+
+theorem red_is_step.eqMprNone {epre : Expr} {spre : HashMap String ℤ} (ih : step (epre, spre) = none) (e' : Expr) :
   ∀ (s' : HashMap String ℤ), ¬Red (epre, spre) (e', s') :=  by
   intro s' h
   induction epre generalizing e' s'
@@ -247,15 +255,18 @@ theorem eqMprNone {epre : Expr} {spre : HashMap String ℤ} (ih : step (epre, sp
         case neg.seq2 e1' a =>
           exact a_ih h' e1' s' a
     }
-    · contradiction
-    · contradiction
-    · contradiction
-    · cases h
+    case bool => contradiction
+    case int  => contradiction
+    case skip => 
+      cases h
       · simp only [step] at ih
       · contradiction
+  case ewhile => simp only [step] at ih
 
+/-- info: 'red_is_step.eqMprNone' depends on axioms: [propext, Quot.sound, Classical.choice] -/
+#guard_msgs in #print axioms red_is_step.eqMprNone
 
-theorem eqMpSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih : Red (epre, spre) post) :
+theorem red_is_step.eqMpSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih : Red (epre, spre) post) :
   step (epre, spre) = some post := by
   induction epre generalizing post
   <;> try trivial
@@ -326,9 +337,14 @@ theorem eqMpSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih : 
       <;> try rw [a_ih h]
       <;> simp only [Option.some_bind]
       contradiction
+  case ewhile =>
+    cases ih
+    simp only [step]
 
+/-- info: 'red_is_step.eqMpSome' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in #print axioms red_is_step.eqMpSome
 
-theorem eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih : step (epre, spre) = some post) :
+theorem red_is_step.eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih : step (epre, spre) = some post) :
   Red (epre, spre) post := by
   induction epre generalizing post
   <;> try simp only [step, Option.map_eq_map, Option.map_eq_some'] at ih
@@ -358,10 +374,10 @@ theorem eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih :
           apply step_int_none
         contradiction
       · simp only [step, Option.pure_def, Option.bind_eq_bind, Option.none_bind] at ih
-      · conv at p =>
-          lhs
-          apply step_skip_none
-        contradiction
+      /- · conv at p => -/
+      /-     lhs -/
+      /-     apply step_skip_none -/
+      /-   contradiction -/
 
     · simp only [← Option.ne_none_iff_exists', ne_eq, not_not] at h
       let lhsx := lhs
@@ -387,21 +403,31 @@ theorem eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih :
             rw [←ih]
             exact .op2 (rhs_ih p) (by simp only [Expr.isInt])
           }
+          case ewhile.intro.intro => 
+            simp only [step, Option.some_bind, Option.some.injEq] at ih
+            rw [← ih]
+            exact .op2 .ewhile (by simp only [Expr.isInt])
+
           · rcases p with ⟨w, find_eq, e_eq, s_eq⟩
             simp only [
               step,
               find_eq,
               Option.map_eq_map,
               Option.map_some',
-              /- e_eq, -/
               Option.some_bind,
               Option.some.injEq
             ] at ih
-            /- rw [s_eq] at ih -/
             rw [←ih]
             refine .op2 (rhs_ih ?x) (by simp only [Expr.isInt])
-            simp only [step, Option.map_eq_map, Option.map_eq_some', Prod.mk.injEq, Expr.int.injEq,
-              and_true, exists_eq_right]
+            simp only [
+              step,
+              Option.map_eq_map,
+              Option.map_eq_some',
+              Prod.mk.injEq,
+              Expr.int.injEq,
+              and_true,
+              exists_eq_right
+            ]
             exact find_eq
 
         · simp only [← Option.ne_none_iff_exists', ne_eq, not_not] at h
@@ -491,6 +517,10 @@ theorem eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih :
 
         · simp only [← Option.ne_none_iff_exists', ne_eq, not_not] at h
           simp only [h, Option.map_none', Option.none_bind] at ih
+      case pos.intro.ewhile =>
+        simp only [Option.some_bind, Option.some.injEq] at ih
+        simp only [← ih]
+        exact .assign2 .ewhile
 
     · simp only [← Option.ne_none_iff_exists', ne_eq, not_not] at h
       cases e
@@ -544,6 +574,13 @@ theorem eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih :
       ] at ih
       rcases ih with ⟨rfl, rfl⟩
       exact .seq1
+  case ewhile =>
+    injection ih with eq
+    rw [←eq]
+    exact .ewhile
+
+/-- info: 'red_is_step.eqMprSome' depends on axioms: [propext, Quot.sound, Classical.choice] -/
+#guard_msgs in #print axioms red_is_step.eqMprSome
 
 theorem red_is_step : Relation.optRel Red = Relation.graph step := by
   apply funext₂
@@ -555,15 +592,15 @@ theorem red_is_step : Relation.optRel Red = Relation.graph step := by
   <;> cases post
   <;> simp only [Relation.graph, Prod.exists, not_exists, Relation.optRel] at *
   case mp.none =>
-    exact eqMpNone ih
+    exact red_is_step.eqMpNone ih
   case mpr.none =>
-    exact eqMprNone ih
+    exact red_is_step.eqMprNone ih
 
   case mp.some post =>
-    exact eqMpSome ih
+    exact red_is_step.eqMpSome ih
 
   case mpr.some post =>
-    exact eqMprSome ih
+    exact red_is_step.eqMprSome ih
 
 /-- info: 'red_is_step' depends on axioms: [propext, Quot.sound, Classical.choice] -/
 #guard_msgs in #print axioms red_is_step
