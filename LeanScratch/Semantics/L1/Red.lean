@@ -15,7 +15,7 @@ inductive Red : State → State → Prop
   | op2 : Red ⟨e2, s⟩ ⟨e2', s'⟩ → e.isInt → Red ⟨.op e o e2, s⟩ ⟨.op e o e2', s'⟩
 
   | deref : (h : s.find? addr = some x) → Red ⟨.deref (addr), s⟩ ⟨.int x, s⟩
-  | assign1 : Red ⟨.assign addr (.int v), s⟩ ⟨.skip, s.insert addr v⟩
+  | assign1 : (h : ∃ x, s.find? addr = some x) → Red ⟨.assign addr (.int v), s⟩ ⟨.skip, s.insert addr v⟩
   | assign2 : Red ⟨e, s⟩ ⟨e', s'⟩ → Red ⟨.assign addr e, s⟩ ⟨.assign addr e', s'⟩
 
   | seq1: Red ⟨.seq .skip e, s⟩ ⟨e, s⟩

@@ -18,7 +18,9 @@ def step: State → Option State
       pure ⟨.op lhs op rhs, s⟩
   | ⟨.deref h, s⟩ => (⟨.int ·, s⟩) <$> s.find? h
   | ⟨.assign addr e, s⟩ => match e with
-    | .int v => some ⟨.skip, s.insert addr v⟩
+    | .int v => do
+      let _ ← s.find? addr
+      some ⟨.skip, s.insert addr v⟩
     | e => do
       let ⟨e', s'⟩ ← step ⟨e, s⟩
       pure ⟨.assign addr e', s'⟩
@@ -111,7 +113,12 @@ theorem eqMpNone {epre : Expr} {spre : HashMap String ℤ}
       have e_ih := e_ih h
       cases e
       <;> simp only [step, e_ih, Option.pure_def, Option.bind_eq_bind, Option.none_bind]
-      exact ih .skip _ (.assign1)
+      next val _ =>
+      by_cases h : ∃ w, spre.find? addr = some w
+      · exfalso
+        exact ih .skip _ (.assign1 h)
+      · simp only [← Option.ne_none_iff_exists', ne_eq, Decidable.not_not] at h
+        simp only [h, Option.none_bind]
   case deref addr =>
     by_cases h : ∃ w, spre.find? addr = some w
     · rcases h with ⟨w, p⟩
@@ -208,11 +215,14 @@ theorem eqMprNone {epre : Expr} {spre : HashMap String ℤ} (ih : step (epre, sp
     unfold step at ih
     simp at ih
     cases h
-    · simp only at ih
+    case assign1 h =>
+      rcases h with ⟨w, p⟩
+      simp only [p, Option.some_bind] at ih
     case assign2 a =>
       cases e
       <;> simp only [Option.bind_eq_none, imp_false, Prod.forall] at ih
-      <;> exact e_ih (forall_eq_none ih) _ _ a
+      <;> try exact e_ih (forall_eq_none ih) _ _ a
+      contradiction
   case deref addr =>
     cases h
     case deref h =>
@@ -288,6 +298,9 @@ theorem eqMpSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih : 
       <;> try rw [e_ih ih]
       <;> simp only [Option.some_bind]
       contradiction
+    case assign1 h =>
+      rcases h with ⟨w, p⟩
+      simp only [p, Option.bind_eq_bind, Option.some_bind]
 
   case eif cond t f cond_ih t_ih f_ih =>
     cases ih
@@ -446,8 +459,15 @@ theorem eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih :
         rw [←ih]
         exact .assign2 (e_ih p)
       }
-      · rw [←ih]
-        exact .assign1
+      case pos.intro.int =>
+        by_cases h : ∃ z, spre.find? addr = some z
+        · let hx := h
+          rcases h with ⟨_, p⟩
+          simp only [p, Option.some_bind, Option.some.injEq] at ih
+          rw [←ih]
+          exact .assign1 hx
+        · simp only [← Option.ne_none_iff_exists', ne_eq, Decidable.not_not] at h
+          simp only [h, Option.none_bind] at ih
       case pos.intro.deref addr =>
         -- TODO: This is a very ugly proof
         by_cases h : ∃ v, spre.find? addr = some v
@@ -483,8 +503,14 @@ theorem eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih :
         Option.some.injEq,
         h
       ] at ih
-      rw [←ih]
-      exact .assign1
+      by_cases h : ∃ z, spre.find? addr = some z
+      · let hx := h
+        rcases h with ⟨_, p⟩
+        simp only [p, Option.some_bind, Option.some.injEq] at ih
+        rw [←ih]
+        exact .assign1 hx
+      · simp only [← Option.ne_none_iff_exists', ne_eq, Decidable.not_not] at h
+        simp only [h, Option.none_bind] at ih
 
   case deref addr =>
     rcases ih with ⟨w, ⟨is_some, h⟩⟩
@@ -539,5 +565,6 @@ theorem red_is_step : Relation.optRel Red = Relation.graph step := by
   case mpr.some post =>
     exact eqMprSome ih
 
-#print axioms red_is_step
+/-- info: 'red_is_step' depends on axioms: [propext, Quot.sound, Classical.choice] -/
+#guard_msgs in #print axioms red_is_step
 
