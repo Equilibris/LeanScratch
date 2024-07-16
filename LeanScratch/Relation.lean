@@ -144,11 +144,11 @@ theorem empty_is_antiSymm : isAntiSymm $ @emptyRel a a := by
   contradiction
 
 inductive RflTransClosure (R : α → α → Prop) : α → α → Prop
-  | base  (a b : α) (base : R a b) : RflTransClosure R a b
-  | rfl   (a : α) : RflTransClosure R a a
-  | trans (a b c : α) (l1 : RflTransClosure R a b) (l2 : RflTransClosure R b c) : RflTransClosure R a c
+  | base  {a b} (base : R a b) : RflTransClosure R a b
+  | rfl   {a} : RflTransClosure R a a
+  | trans {a b c} (l1 : RflTransClosure R a b) (l2 : RflTransClosure R b c) : RflTransClosure R a c
 
-theorem RflTransClosure_is_rfl : isRfl $ RflTransClosure R := fun a => .rfl a
+theorem RflTransClosure_is_rfl : isRfl $ RflTransClosure R := fun _ => .rfl
 theorem RflTransClosure_is_trans : isTrans $ RflTransClosure R := by
   apply funext₂
   intro a b
@@ -157,10 +157,10 @@ theorem RflTransClosure_is_trans : isTrans $ RflTransClosure R := by
   constructor
   · intro h
     rcases h with ⟨w, ⟨l1, l2⟩⟩
-    exact .trans a w b l1 l2
+    exact .trans l1 l2
   · intro h
     use a
-    exact ⟨.rfl a, h⟩
+    exact ⟨.rfl, h⟩
 
 
 theorem full_trans_symm_is_rfl (trans : isTrans R) (symm : isSymm R) (full : isFull R) : isRfl R := by
@@ -254,7 +254,7 @@ def R_tr := RflTransClosure R
 
 example : R_tr allZeros $ cons True $ cons True allZeros := by
   simp only [R_tr]
-  apply RflTransClosure.trans allZeros (cons True allZeros) (cons True $ cons True allZeros)
+  apply RflTransClosure.trans
   · apply RflTransClosure.base
     exact R_one_True
   · apply RflTransClosure.base

@@ -16,10 +16,10 @@ def step: State → Option State
     | lhs, op, rhs => do
       let ⟨lhs, s⟩ ← step ⟨lhs, s⟩
       pure ⟨.op lhs op rhs, s⟩
-  | ⟨.deref h, s⟩ => (⟨.int ·, s⟩) <$> s.find? h
+  | ⟨.deref h, s⟩ => (⟨.int ·, s⟩) <$> s.lookup h
   | ⟨.assign addr e, s⟩ => match e with
     | .int v => do
-      let _ ← s.find? addr
+      let _ ← s.lookup addr
       some ⟨.skip, s.insert addr v⟩
     | e => do
       let ⟨e', s'⟩ ← step ⟨e, s⟩
@@ -56,8 +56,10 @@ lemma forall_eq_none : (∀ a b, ¬(o = some (Prod.mk a b))) → (o = none) := b
   intro h
   exact Option.eq_none_iff_forall_not_mem.mpr fun a ↦ h a.1 a.2
 
-theorem red_is_step.eqMpNone {epre : Expr} {spre : HashMap String ℤ}
-    (ih : ∀ (e' : Expr) (s' : HashMap String ℤ), ¬Red (epre, spre) (e', s')) : step (epre, spre) = none := by
+set_option linter.unusedVariables false in
+section
+theorem red_is_step.eqMpNone {epre : Expr} {spre : VarMap}
+    (ih : ∀ (e' : Expr) (s' : VarMap), ¬Red (epre, spre) (e', s')) : step (epre, spre) = none := by
   induction epre generalizing spre
   <;> try simp only [step]
   <;> try trivial
@@ -117,13 +119,13 @@ theorem red_is_step.eqMpNone {epre : Expr} {spre : HashMap String ℤ}
       cases e
       <;> simp only [step, e_ih, Option.pure_def, Option.bind_eq_bind, Option.none_bind]
       next val _ =>
-      by_cases h : ∃ w, spre.find? addr = some w
+      by_cases h : ∃ w, spre.lookup addr = some w
       · exfalso
         exact ih .skip _ (.assign1 h)
       · simp only [← Option.ne_none_iff_exists', ne_eq, Decidable.not_not] at h
         simp only [h, Option.none_bind]
   case deref addr =>
-    by_cases h : ∃ w, spre.find? addr = some w
+    by_cases h : ∃ w, spre.lookup addr = some w
     · rcases h with ⟨w, p⟩
       exfalso
       exact ih (.int w) spre (.deref p)
@@ -147,8 +149,8 @@ theorem red_is_step.eqMpNone {epre : Expr} {spre : HashMap String ℤ}
 /-- info: 'red_is_step.eqMpNone' depends on axioms: [propext, Quot.sound, Classical.choice] -/
 #guard_msgs in #print axioms red_is_step.eqMpNone
 
-theorem red_is_step.eqMprNone {epre : Expr} {spre : HashMap String ℤ} (ih : step (epre, spre) = none) (e' : Expr) :
-  ∀ (s' : HashMap String ℤ), ¬Red (epre, spre) (e', s') :=  by
+theorem red_is_step.eqMprNone {epre : Expr} {spre : VarMap} (ih : step (epre, spre) = none) (e' : Expr) :
+  ∀ (s' : VarMap), ¬Red (epre, spre) (e', s') :=  by
   intro s' h
   induction epre generalizing e' s'
   <;> try trivial
@@ -266,7 +268,7 @@ theorem red_is_step.eqMprNone {epre : Expr} {spre : HashMap String ℤ} (ih : st
 /-- info: 'red_is_step.eqMprNone' depends on axioms: [propext, Quot.sound, Classical.choice] -/
 #guard_msgs in #print axioms red_is_step.eqMprNone
 
-theorem red_is_step.eqMpSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih : Red (epre, spre) post) :
+theorem red_is_step.eqMpSome {epre : Expr} {spre : VarMap} {post : State} (ih : Red (epre, spre) post) :
   step (epre, spre) = some post := by
   induction epre generalizing post
   <;> try trivial
@@ -344,7 +346,7 @@ theorem red_is_step.eqMpSome {epre : Expr} {spre : HashMap String ℤ} {post : S
 /-- info: 'red_is_step.eqMpSome' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in #print axioms red_is_step.eqMpSome
 
-theorem red_is_step.eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : State} (ih : step (epre, spre) = some post) :
+theorem red_is_step.eqMprSome {epre : Expr} {spre : VarMap} {post : State} (ih : step (epre, spre) = some post) :
   Red (epre, spre) post := by
   induction epre generalizing post
   <;> try simp only [step, Option.map_eq_map, Option.map_eq_some'] at ih
@@ -486,7 +488,7 @@ theorem red_is_step.eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : 
         exact .assign2 (e_ih p)
       }
       case pos.intro.int =>
-        by_cases h : ∃ z, spre.find? addr = some z
+        by_cases h : ∃ z, spre.lookup addr = some z
         · let hx := h
           rcases h with ⟨_, p⟩
           simp only [p, Option.some_bind, Option.some.injEq] at ih
@@ -496,7 +498,7 @@ theorem red_is_step.eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : 
           simp only [h, Option.none_bind] at ih
       case pos.intro.deref addr =>
         -- TODO: This is a very ugly proof
-        by_cases h : ∃ v, spre.find? addr = some v
+        by_cases h : ∃ v, spre.lookup addr = some v
         · rcases h with ⟨_, p'⟩
           simp only [p', Option.map_some', Option.some_bind, Option.some.injEq] at ih
           rw [←ih]
@@ -533,7 +535,7 @@ theorem red_is_step.eqMprSome {epre : Expr} {spre : HashMap String ℤ} {post : 
         Option.some.injEq,
         h
       ] at ih
-      by_cases h : ∃ z, spre.find? addr = some z
+      by_cases h : ∃ z, spre.lookup addr = some z
       · let hx := h
         rcases h with ⟨_, p⟩
         simp only [p, Option.some_bind, Option.some.injEq] at ih
@@ -604,4 +606,5 @@ theorem red_is_step : Relation.optRel Red = Relation.graph step := by
 
 /-- info: 'red_is_step' depends on axioms: [propext, Quot.sound, Classical.choice] -/
 #guard_msgs in #print axioms red_is_step
+end
 

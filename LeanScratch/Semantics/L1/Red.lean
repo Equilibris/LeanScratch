@@ -1,11 +1,14 @@
 import LeanScratch.Semantics.L1.Stx
 import Batteries.Data.HashMap.Basic
 import Mathlib.Data.Rel
+import Mathlib.Data.List.AList
 import LeanScratch.Relation
 
 open Batteries (HashMap)
 
-abbrev State := Expr × HashMap String Int
+abbrev VarMap := AList (fun x : String => Int)
+
+abbrev State := Expr × VarMap
 
 inductive Red : State → State → Prop
   | op_add (a b : Int) : Red ⟨.op (.int a) .add (.int b), s⟩ ⟨.int (a + b), s⟩
@@ -16,9 +19,9 @@ inductive Red : State → State → Prop
   | op2 : Red ⟨e2, s⟩ ⟨e2', s'⟩
       → e.isInt → Red ⟨.op e o e2, s⟩ ⟨.op e o e2', s'⟩
 
-  | deref : (h : s.find? addr = some x)
+  | deref : (h : s.lookup addr = some x)
       → Red ⟨.deref (addr), s⟩ ⟨.int x, s⟩
-  | assign1 : (h : ∃ x, s.find? addr = some x)
+  | assign1 : (h : ∃ x, s.lookup addr = some x)
       → Red ⟨.assign addr (.int v), s⟩ ⟨.skip, s.insert addr v⟩
   | assign2 : Red ⟨e, s⟩ ⟨e', s'⟩ → Red ⟨.assign addr e, s⟩ ⟨.assign addr e', s'⟩
 
@@ -170,6 +173,8 @@ theorem red_det : Red i o₁ ∧ Red i o₂ → o₁ = o₂ := by
     injection a_ih hb with eq₁ eq₂
     rw [eq₁, eq₂]
 
+def RedStar := Relation.RflTransClosure Red
+
 example : Red ⟨.eif (.bool true) (.int 1) .skip, {}⟩ ⟨.int 1, {} ⟩ := .if_t
 
 example : Rel.comp Red Red ⟨.eif (.bool true) (.op (.int 0) .add (.int 1)) .skip, {}⟩ ⟨.int 1, {} ⟩ := by
@@ -180,6 +185,17 @@ example : Rel.comp Red Red ⟨.eif (.bool true) (.op (.int 0) .add (.int 1)) .sk
 
   exact ⟨.if_t, .op_add 0 1⟩
 
+
+open Relation.RflTransClosure in
+example : RedStar ⟨.eif (.bool true) (.op (.int 0) .add (.int 1)) .skip, {}⟩ ⟨.int 1, {} ⟩ :=
+  .trans (.base .if_t) $ .base (.op_add 0 1)
+
+
+  /- use .op (.int 0) .add (.int 1) -/
+  /- use {} -/
+
+  /- exact ⟨.if_t, .op_add 0 1⟩ -/
+
 example : ¬(Red ⟨.int 1, {}⟩ ⟨.int 2, {}⟩) := by
   intro a
   cases a
@@ -187,5 +203,4 @@ example : ¬(Red ⟨.int 1, {}⟩ ⟨.int 2, {}⟩) := by
 example : ¬(Red ⟨.op (.int 1) .add (.int 2), {}⟩ ⟨.int 2, {}⟩) := by
   intro a
   cases a
-
 

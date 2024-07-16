@@ -34,6 +34,6 @@ theorem isInt_defn {e : Expr} : (∃ i, e = .int i) ↔ e.isInt := by
       use v
 
 def Expr.isValue: Expr → Bool
-  | .bool _ | .int _ => true
+  | .bool _ | .int _ | .skip => true
   | _ => false
 

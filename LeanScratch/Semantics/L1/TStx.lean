@@ -1,11 +1,7 @@
 import LeanScratch.Semantics.L1.Stx
 import LeanScratch.Semantics.L1.Red
+import LeanScratch.Semantics.L1.Typed
 
-
-inductive Ty
-  | bool
-  | int
-  | void
 
 inductive TExpr: Ty → Type
   | bool (val : Bool) : TExpr .bool
@@ -39,7 +35,7 @@ def untype : { a : Ty } → TExpr a → Expr
   | _, .ewhile cond e => .ewhile (untype cond) (untype e)
   | _, .seq a b => .seq (untype a) (untype b)
 
-def infer : {a : Ty} → Expr → Option (TExpr a)
+def TExpr.infer : {a : Ty} → Expr → Option (TExpr a)
   | .bool, .bool v => some $ .bool v
   | .bool, .op lhs .gte rhs => do pure $ .op_gte (← infer lhs) (← infer rhs)
 
@@ -127,12 +123,6 @@ def TRed (pre : TExpr α) (post : TExpr β) : Red ⟨untype pre, s⟩ ⟨untype 
     cases post
     <;> simp [untype] at h
     <;> have x := sea_simp
-
-    
-  
-  
-
-
 
 
 /- def TRed (pre : TExpr α) : Red ⟨untype pre, s⟩ ⟨post, s'⟩ → check α post ∨ illTyped post := by -/
