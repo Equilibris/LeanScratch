@@ -4,6 +4,8 @@ import Batteries.Data.HashMap.Basic
 import Mathlib.Data.Rel
 import LeanScratch.Relation
 
+namespace L1
+
 open Batteries (HashMap)
 
 def step: State → Option State
@@ -146,9 +148,6 @@ theorem red_is_step.eqMpNone {epre : Expr} {spre : VarMap}
   case ewhile =>
     exact ih _ _ .ewhile
 
-/-- info: 'red_is_step.eqMpNone' depends on axioms: [propext, Quot.sound, Classical.choice] -/
-#guard_msgs in #print axioms red_is_step.eqMpNone
-
 theorem red_is_step.eqMprNone {epre : Expr} {spre : VarMap} (ih : step (epre, spre) = none) (e' : Expr) :
   ∀ (s' : VarMap), ¬Red (epre, spre) (e', s') :=  by
   intro s' h
@@ -257,16 +256,11 @@ theorem red_is_step.eqMprNone {epre : Expr} {spre : VarMap} (ih : step (epre, sp
         case neg.seq2 e1' a =>
           exact a_ih h' e1' s' a
     }
-    case bool => contradiction
-    case int  => contradiction
     case skip => 
       cases h
       · simp only [step] at ih
       · contradiction
   case ewhile => simp only [step] at ih
-
-/-- info: 'red_is_step.eqMprNone' depends on axioms: [propext, Quot.sound, Classical.choice] -/
-#guard_msgs in #print axioms red_is_step.eqMprNone
 
 theorem red_is_step.eqMpSome {epre : Expr} {spre : VarMap} {post : State} (ih : Red (epre, spre) post) :
   step (epre, spre) = some post := by
@@ -343,9 +337,6 @@ theorem red_is_step.eqMpSome {epre : Expr} {spre : VarMap} {post : State} (ih : 
     cases ih
     simp only [step]
 
-/-- info: 'red_is_step.eqMpSome' depends on axioms: [propext, Quot.sound] -/
-#guard_msgs in #print axioms red_is_step.eqMpSome
-
 theorem red_is_step.eqMprSome {epre : Expr} {spre : VarMap} {post : State} (ih : step (epre, spre) = some post) :
   Red (epre, spre) post := by
   induction epre generalizing post
@@ -367,19 +358,7 @@ theorem red_is_step.eqMprSome {epre : Expr} {spre : VarMap} {post : State} (ih :
         rw [←ih]
         exact .op1 (lhs_ih p)
       }
-      · conv at p =>
-          lhs
-          apply step_bool_none
-        contradiction
-      · conv at p =>
-          lhs
-          apply step_int_none
-        contradiction
-      · simp only [step, Option.pure_def, Option.bind_eq_bind, Option.none_bind] at ih
-      /- · conv at p => -/
-      /-     lhs -/
-      /-     apply step_skip_none -/
-      /-   contradiction -/
+      simp only [step] at p
 
     · simp only [← Option.ne_none_iff_exists', ne_eq, not_not] at h
       let lhsx := lhs
@@ -581,9 +560,6 @@ theorem red_is_step.eqMprSome {epre : Expr} {spre : VarMap} {post : State} (ih :
     rw [←eq]
     exact .ewhile
 
-/-- info: 'red_is_step.eqMprSome' depends on axioms: [propext, Quot.sound, Classical.choice] -/
-#guard_msgs in #print axioms red_is_step.eqMprSome
-
 theorem red_is_step : Relation.optRel Red = Relation.graph step := by
   apply funext₂
   intro ⟨epre, spre⟩ post
@@ -604,7 +580,8 @@ theorem red_is_step : Relation.optRel Red = Relation.graph step := by
   case mpr.some post =>
     exact red_is_step.eqMprSome ih
 
-/-- info: 'red_is_step' depends on axioms: [propext, Quot.sound, Classical.choice] -/
+/-- info: 'L1.red_is_step' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms red_is_step
 end
+end L1
 

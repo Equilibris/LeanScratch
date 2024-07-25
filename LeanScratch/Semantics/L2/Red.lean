@@ -1,10 +1,9 @@
-import LeanScratch.Semantics.L1.Stx
-import Batteries.Data.HashMap.Basic
+import LeanScratch.Semantics.L2.Stx
 import Mathlib.Data.Rel
 import Mathlib.Data.List.AList
 import LeanScratch.Relation
 
-namespace L1
+namespace L2
 
 abbrev VarMap := AList (fun _ : String => Int)
 
@@ -25,18 +24,26 @@ inductive Red : State → State → Prop
       → Red ⟨.assign addr (.int v), s⟩ ⟨.skip, s.insert addr v⟩
   | assign2 : Red ⟨e, s⟩ ⟨e', s'⟩ → Red ⟨.assign addr e, s⟩ ⟨.assign addr e', s'⟩
 
-  | seq1: Red ⟨.seq .skip e, s⟩ ⟨e, s⟩
-  | seq2: Red ⟨e1, s⟩ ⟨e1', s'⟩
+  | seq1 : Red ⟨.seq .skip e, s⟩ ⟨e, s⟩
+  | seq2 : Red ⟨e1, s⟩ ⟨e1', s'⟩
       → Red ⟨.seq e1 e2, s⟩ ⟨.seq e1' e2, s'⟩
 
-  | if_t: Red ⟨.eif (.bool true) e1 e2, s⟩ ⟨e1, s⟩
-  | if_f: Red ⟨.eif (.bool false) e1 e2, s⟩ ⟨e2, s⟩
+  | if_t : Red ⟨.eif (.bool true) e1 e2, s⟩ ⟨e1, s⟩
+  | if_f : Red ⟨.eif (.bool false) e1 e2, s⟩ ⟨e2, s⟩
 
-  | if_cond: Red ⟨condition, s⟩ ⟨condition', s'⟩
+  | if_cond : Red ⟨condition, s⟩ ⟨condition', s'⟩
       → Red ⟨.eif condition e1 e2, s⟩ ⟨.eif condition' e1 e2, s'⟩
 
   | ewhile : Red ⟨.ewhile c body, stx⟩ ⟨.eif c (.seq body (.ewhile c body)) .skip, stx⟩
 
+  | beta : repl.isFnValue
+      → Red ⟨.app (.abs name _ body) repl, s⟩ ⟨body.subst name repl, s⟩
+  | app1 : Red ⟨e1, s⟩ ⟨e1', s'⟩
+      → Red ⟨.app e1 e2, s⟩ ⟨.app e1' e2, s'⟩
+  | app2 : e1.isFnValue → Red ⟨e2, s⟩ ⟨e2', s'⟩
+      → Red ⟨.app e1 e2, s⟩ ⟨.app e1 e2', s'⟩
+
+-- copy pasted from l1
 @[simp]
 theorem skip_op_int : Red ⟨.op (.skip) o e, s⟩ ⟨sta, stx⟩ → False := by
   intro h
@@ -95,6 +102,14 @@ theorem bool_simp : Red ⟨.bool b, s⟩ ⟨stx, sta⟩ ↔ False := by
 
 @[simp]
 theorem int_simp : Red ⟨.int b, s⟩ ⟨stx, sta⟩ ↔ False := by
+  constructor
+  <;> intro h
+  · cases h
+  · contradiction
+
+
+@[simp]
+theorem abs_simp : Red ⟨.abs nm ty body, s⟩ ⟨stx, sta⟩ ↔ False := by
   constructor
   <;> intro h
   · cases h
@@ -173,36 +188,30 @@ theorem red_det : Red i o₁ ∧ Red i o₂ → o₁ = o₂ := by
     injection a_ih hb with eq₁ eq₂
     rw [eq₁, eq₂]
 
-def RedStar := Relation.RflTransClosure Red
+  case beta.app2 x name body repl s replVal _ _ _ a  =>
+    cases repl
+    <;> simp only at replVal
+    <;> cases a
+  case app1.app1 e s e₁ s₁ e₂ s₂ a_ih e₁' s₁' a =>
+    injection a_ih a with eq₁ eq₂
+    rw [eq₁, eq₂]
+  case app1.app2 e _ _ _ _ a _ _ _ v _ =>
+    cases e
+    <;> simp only at v
+    <;> cases a
 
-example : Red ⟨.eif (.bool true) (.int 1) .skip, {}⟩ ⟨.int 1, {} ⟩ := .if_t
+  case app2.beta e _ _ _ a _ _ _ _ _ v =>
+    cases e
+    <;> simp only at v
+    <;> cases a
 
-example : Rel.comp Red Red ⟨.eif (.bool true) (.op (.int 0) .add (.int 1)) .skip, {}⟩ ⟨.int 1, {} ⟩ := by
-  simp [Rel.comp]
+  case app2.app1 e v _ _ _ _ a =>
+    cases e
+    <;> simp only at v
+    <;> cases a
+  case app2.app2 e s e₁ s₁ e' e'v _ a_ih _ _ _ a =>
+    injection a_ih a with eq₁ eq₂
+    rw [eq₁, eq₂]
 
-  use .op (.int 0) .add (.int 1)
-  use {}
-
-  exact ⟨.if_t, .op_add 0 1⟩
-
-
-open Relation.RflTransClosure in
-example : RedStar ⟨.eif (.bool true) (.op (.int 0) .add (.int 1)) .skip, {}⟩ ⟨.int 1, {} ⟩ :=
-  .trans (.base .if_t) $ .base (.op_add 0 1)
-
-
-  /- use .op (.int 0) .add (.int 1) -/
-  /- use {} -/
-
-  /- exact ⟨.if_t, .op_add 0 1⟩ -/
-
-example : ¬(Red ⟨.int 1, {}⟩ ⟨.int 2, {}⟩) := by
-  intro a
-  cases a
-
-example : ¬(Red ⟨.op (.int 1) .add (.int 2), {}⟩ ⟨.int 2, {}⟩) := by
-  intro a
-  cases a
-
-end L1
+end L2
 

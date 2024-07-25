@@ -2,6 +2,7 @@ import LeanScratch.Semantics.L1.Stx
 import LeanScratch.Semantics.L1.Red
 import LeanScratch.Semantics.L1.Typed
 
+namespace L1
 
 inductive TExpr: Ty → Type
   | bool (val : Bool) : TExpr .bool
@@ -160,5 +161,6 @@ def TRed (pre : TExpr α) (post : TExpr β) : Red ⟨untype pre, s⟩ ⟨untype 
 /-   case seq ty a b a_ih b_ih => sorry -/
   
   
+end L1
 
 

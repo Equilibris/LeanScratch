@@ -1,5 +1,7 @@
 import Mathlib.Data.Rel
 
+namespace L1
+
 inductive Op
   | add
   | gte
@@ -36,4 +38,6 @@ theorem isInt_defn {e : Expr} : (∃ i, e = .int i) ↔ e.isInt := by
 def Expr.isValue: Expr → Bool
   | .bool _ | .int _ | .skip => true
   | _ => false
+
+end L1
 

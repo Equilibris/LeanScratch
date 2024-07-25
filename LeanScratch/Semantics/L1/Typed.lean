@@ -3,6 +3,8 @@ import LeanScratch.Semantics.L1.Red
 import LeanScratch.Relation
 import Mathlib.Data.List.AList
 
+namespace L1
+
 inductive Ty
   | bool
   | int
@@ -101,9 +103,6 @@ theorem TypePreservation : Red ⟨e, s⟩ ⟨e', s'⟩ → TySpec s e x → TySp
     exact .eif (c_ih a) (CtxConsistency a t) (CtxConsistency a f)
   case ewhile c b _ _ =>
     exact .eif c (.seq b (.ewhile c b)) .skip
-
-/-- info: 'TypePreservation' depends on axioms: [propext, Quot.sound] -/
-#guard_msgs in #print axioms TypePreservation
 
 theorem Progress (spec : TySpec s e x) : (e.isValue ∨ ∃ w, Red ⟨e, s⟩ w) := by
   induction spec
@@ -220,9 +219,6 @@ theorem Progress (spec : TySpec s e x) : (e.isValue ∨ ∃ w, Red ⟨e, s⟩ w)
     use ⟨.eif c (.seq body (.ewhile c body)) .skip, s⟩
     exact .ewhile
 
-/-- info: 'Progress' depends on axioms: [propext, Quot.sound] -/
-#guard_msgs in #print axioms Progress
-
 theorem LongTypePreservation (spec : TySpec s e ty) (h : RedStar ⟨e, s⟩ ⟨e', s'⟩) : TySpec s' e' ty := by
   have (w₁ w₂) (spec : TySpec w₁.snd w₁.fst ty) (h : RedStar w₁ w₂) : TySpec w₂.snd w₂.fst ty := by
     induction h
@@ -243,5 +239,7 @@ theorem Safety (spec : TySpec s e ty) (h : RedStar ⟨e, s⟩ ⟨e', s'⟩) : (e
   case trans l1 l2 =>
     exact Progress $ (LongTypePreservation · l2) ∘ (LongTypePreservation · l1) $ spec
 
-/-- info: 'Safety' depends on axioms: [propext, Quot.sound] -/
+/-- info: 'L1.Safety' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in #print axioms Safety
+
+end L1

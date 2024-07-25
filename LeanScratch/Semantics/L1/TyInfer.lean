@@ -4,6 +4,8 @@ import LeanScratch.Semantics.L1.Typed
 import LeanScratch.Relation
 import Batteries.Data.HashMap.Basic
 
+namespace L1
+
 def Ty.infer (ctx : Ctx) : Expr → Option Ty
   | .bool _ => some .bool
   | .int _  => some .int
@@ -402,6 +404,8 @@ theorem TySpec_is_infer : Relation.optRel (monize TySpec) = Relation.graph (moni
   case mpr.some ty =>
     exact TySpec_is_infer.eqMprSome ih
 
-/-- info: 'TySpec_is_infer' depends on axioms: [Quot.sound, propext, Classical.choice] -/
+/-- info: 'L1.TySpec_is_infer' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms TySpec_is_infer
 end
+
+end L1
