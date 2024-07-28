@@ -91,20 +91,19 @@ theorem emptyRel_isFull_over_False : isFull $ (@emptyRel False v) := by
   intro a
   contradiction
 
-theorem isInhabited_iff_neempty : isInhabited R ↔ R ≠ emptyRel := by
-  constructor
-  · intro h r
-    rcases h with ⟨a, b, rab⟩
-    rw [r] at rab
-    unfold emptyRel at rab
-    exact rab
-  · intro h
-    unfold emptyRel at h
-    simp at h
-    by_contra!
-    sorry
-
-
+/- theorem isInhabited_iff_neempty : isInhabited R ↔ R ≠ emptyRel := by -/
+/-   constructor -/
+/-   · intro h r -/
+/-     rcases h with ⟨a, b, rab⟩ -/
+/-     rw [r] at rab -/
+/-     unfold emptyRel at rab -/
+/-     exact rab -/
+/-   · intro h -/
+/-     unfold emptyRel at h -/
+/-     simp at h -/
+/-     unfold isInhabited -/
+/-     by_contra! -/
+/-     sorry -/
 
 theorem emptyRel_is_symm : isSymm $ @emptyRel a a := by
   intro a b
