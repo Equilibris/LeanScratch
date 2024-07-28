@@ -1,5 +1,3 @@
-import Mathlib.Data.Rel
-import Mathlib.Logic.Relation
 import LeanScratch.GeneratingGroups.Iso
 
 def PowerRel.section : GGMod.GG α → GGMod.GG (α × ℕ)

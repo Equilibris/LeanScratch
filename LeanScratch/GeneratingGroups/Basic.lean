@@ -1,10 +1,7 @@
 import Mathlib.Data.Rel
-import Mathlib.Logic.Relation
 import LeanScratch.GeneratingGroups.GG
 
-
 namespace GGMod
-@[aesop safe [constructors, cases]]
 inductive Rel (R : rTy α) : GG α → GG α → Prop
   | appUnit : Rel R (.app v .unit) (v)
   | unitApp : Rel R (.app .unit v) (v)
@@ -96,5 +93,5 @@ theorem assoc : @app _ R (app a b) c = app a (app b c) := by
   exact .assoc
 
 instance : Inhabited (GGMod R) := ⟨unit⟩
-
 end GGMod
+
