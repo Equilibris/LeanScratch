@@ -14,7 +14,8 @@ def Iso (R : rTy α) (R' : rTy β) : Prop := ∃f : GGMod R → GGMod R', homo f
 
 scoped infix:20 " ≅ " => Iso
 
-theorem isoRfl : R ≅ R := by
+namespace Iso
+theorem refl : R ≅ R := by
   use id
   constructor
   · unfold homo
@@ -23,7 +24,7 @@ theorem isoRfl : R ≅ R := by
   · exact Function.bijective_id
 
 open Function in
-theorem isoSymm {R : rTy α} {R' : rTy β} (h : R ≅ R') : R' ≅ R := by
+theorem symm {R : rTy α} {R' : rTy β} (h : R ≅ R') : R' ≅ R := by
   rcases h with ⟨w, p⟩
   use invFun w
   have rInv := rightInverse_invFun $ Bijective.surjective p.right
@@ -52,7 +53,7 @@ theorem isoSymm {R : rTy α} {R' : rTy β} (h : R ≅ R') : R' ≅ R := by
     · exact rInv
     · exact lInv
 
-theorem isoTrans {R₁ : rTy α} {R₂ : rTy β} {R₃ : rTy γ} (h₁₂ : R₁ ≅ R₂) (h₂₃ : R₂ ≅ R₃) : R₁ ≅ R₃ := by
+theorem trans {R₁ : rTy α} {R₂ : rTy β} {R₃ : rTy γ} (h₁₂ : R₁ ≅ R₂) (h₂₃ : R₂ ≅ R₃) : R₁ ≅ R₃ := by
   rcases h₁₂ with ⟨w₁₂, p₁₂⟩
   rcases h₂₃ with ⟨w₂₃, p₂₃⟩
   use w₂₃ ∘ w₁₂
@@ -60,13 +61,19 @@ theorem isoTrans {R₁ : rTy α} {R₂ : rTy β} {R₃ : rTy γ} (h₁₂ : R₁
   · refine homoComp p₁₂.left p₂₃.left
   · apply Function.Bijective.comp p₂₃.right p₁₂.right
 
-instance : @Trans (rTy α) (rTy β) (rTy γ) Iso Iso Iso := ⟨isoTrans⟩
+instance : @Trans (rTy α) (rTy β) (rTy γ) Iso Iso Iso := ⟨trans⟩
+
+def bijectionOver { f : α → GGMod R } (bij : Function.Bijective f) (iso : R ≅ R') :
+    ∃ f' : α → GGMod R', Function.Bijective f' := by
+  rcases iso with ⟨w, ⟨_, wbij⟩⟩
+  use w ∘ f
+  exact Function.Bijective.comp wbij bij
 
 /--
   Sometimes, proving statements over Setoids can be hard.
   This is a simple translation to the different statements needed.
 -/
-theorem Iso.Alt {R : rTy α} {R' : rTy β} :
+theorem Alt {R : rTy α} {R' : rTy β} :
     (∃ f : GG α → GG β, ∃ f' : GG β → GG α,
       (∀ {x y}, (Rel R) x y → (Rel R') (f x) (f y)) ∧
       (∀ {x y}, (Rel R') x y → (Rel R) (f' x) (f' y)) ∧
@@ -119,4 +126,4 @@ theorem Iso.Alt {R : rTy α} {R' : rTy β} :
 
       exact .trans (fLaw outer) (.trans bijR inner)
 
-end GGMod
+end GGMod.Iso

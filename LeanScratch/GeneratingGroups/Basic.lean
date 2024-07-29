@@ -36,7 +36,6 @@ instance : Trans (@Eq (GGMod R)) (@Eq (GGMod R)) (@Eq (GGMod R)) where
     introv h₁ h₂
     exact h₁.trans h₂
 
-
 namespace GGMod
 def enter { R : rTy α} (x : GG α) : GGMod R :=
   Quotient.mk (base R) x

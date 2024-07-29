@@ -3,6 +3,7 @@ import LeanScratch.GeneratingGroups.Iso
 namespace GGMod
 def K : GGMod.rTy α := fun _ _ => True
 def E : GGMod.rTy Empty := fun _ _ => False
+
 theorem K.KillSingular { α } : @K α ≅ E := by
   use fun _ => GGMod.unit
   constructor

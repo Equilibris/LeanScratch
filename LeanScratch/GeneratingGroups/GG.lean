@@ -1,4 +1,3 @@
-
 namespace GGMod
 
 inductive GG (α : Type _)
