@@ -4,3 +4,4 @@ import «LeanScratch».Basic
 import «LeanScratch».Semantics
 import «LeanScratch».Relation
 import «LeanScratch».GeneratingGroups
+import «LeanScratch».Automata
