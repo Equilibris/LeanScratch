@@ -277,5 +277,3 @@ example : R_tr allZeros $ cons True $ cons True allZeros := by
         · simp
 
 end Relation
-
-
