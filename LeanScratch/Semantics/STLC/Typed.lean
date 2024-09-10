@@ -6,7 +6,6 @@ import LeanScratch.Relation
 namespace STLC
 
 inductive TySpec : List Ty → Stx → Ty → Prop
-  | fvar : TySpec _ (.fvar ty) ty
   | bvar : Γ[idx]? = some ty → TySpec Γ (.bvar idx) ty
 
   | app : TySpec Γ fn (argTy ⇒ retTy) → TySpec Γ arg argTy
@@ -14,30 +13,23 @@ inductive TySpec : List Ty → Stx → Ty → Prop
   | abs : TySpec (ty :: Γ) body retTy
       → TySpec Γ (.abs ty body) (ty ⇒ retTy)
 
-theorem TyUnique : TySpec Γ i o₁ → TySpec Γ i o₂ → o₁ = o₂ := by
-  intro a b
-  induction i generalizing Γ o₁ o₂
-  · cases a
-    next ha =>
+theorem TyUnique (a : TySpec Γ i o₁) (b : TySpec Γ i o₂) : o₁ = o₂ :=
+  match i with
+  | .bvar id => by
+    cases a
     cases b
-    next hb =>
+    next ha hb =>
     exact (Option.some.injEq _ _).mp $ ha.symm.trans hb
-  · cases a
-    cases b
-    rfl
-  case app fn_ih _ =>
+  | .app fn arg => by
     cases a
-    next a argTy₁ fnTy₁ =>
     cases b
-    next b argTy₂ fnTy₂ =>
-    exact ((Ty.arr.injEq _ _ _ _).mp $ fn_ih fnTy₁ fnTy₂).2
-
-  case abs body_ih =>
+    next a argTy₁ fnTy₁ b argTy₂ fnTy₂ =>
+    exact ((Ty.arr.injEq _ _ _ _).mp $ TyUnique fnTy₁ fnTy₂).2
+  | .abs ty body => by
     cases a
-    next a ty₁ =>
     cases b
-    next b ty₂ =>
-    exact (Ty.arr.injEq _ _ _ _).mpr ⟨rfl, body_ih ty₁ ty₂⟩
+    next a ty₁ b ty₂ =>
+    exact (Ty.arr.injEq _ _ _ _).mpr ⟨rfl, TyUnique ty₁ ty₂⟩
 
 /- theorem ReplacePreserve : Γ[n]? = some replTy → TySpec Γ repl replTy → TySpec Γ v ty → TySpec Γ (v.replace n 0 repl) ty := by -/
 /-   intro h hReplTy hspec -/
@@ -105,8 +97,6 @@ theorem TyUnique : TySpec Γ i o₁ → TySpec Γ i o₂ → o₁ = o₂ := by
 /-   case bvar idx fn => -/
 /-     rw [List.getElem?_append_right (by omega), add_tsub_cancel_right] at fn -/
 /-     exact .bvar fn -/
-/-   case fvar => -/
-/-     exact .fvar -/
 /-   case app fn_ih arg_ih _ harg hfn => -/
 /-     exact .app (fn_ih concat hfn) (arg_ih concat harg) -/
 /-   case abs ty _ body_ih _ hbody => -/
@@ -114,18 +104,16 @@ theorem TyUnique : TySpec Γ i o₁ → TySpec Γ i o₂ → o₁ = o₂ := by
 /-     have := body_ih (ty :: concat) hbody -/
 /-     sorry -/
 
-lemma List.getElem?_length {ls : List α} : ls[n]? = some v → n < ls.length := by
-  intro h
-  induction ls generalizing n
-  · contradiction
-  case cons hd tl tl_ih =>
-    cases n
-    · exact Nat.zero_lt_succ _
-    case succ n =>
-      simp only [List.length_cons, add_lt_add_iff_right]
-      apply tl_ih
-      simp only [List.getElem?_cons_succ] at h
-      exact h
+lemma List.getElem?_length {ls : List α} (h : ls[n]? = some v) : n < ls.length :=
+  match ls with
+  | .nil => Option.noConfusion h
+  | .cons hd tl =>
+    match n with
+    | 0 => Nat.zero_lt_succ _
+    | n+1 => by
+      rw [List.length_cons, add_lt_add_iff_right]
+      rw [List.getElem?_cons_succ] at h
+      exact List.getElem?_length h
 
 lemma List.eraseIdx_pre_k
     {k : Nat} {ls : List α} (shorter : k < n)
@@ -140,13 +128,37 @@ lemma List.eraseIdx_pre_k
     next n' =>
       simp_all only [Nat.succ_eq_add_one, add_lt_add_iff_right, List.getElem?_cons_succ]
 
-theorem ReverseBetaTypingX.ex1
-    {id : ℕ} {Γ : List Ty} {Γ' : List Ty}
-    (hArgTy : TySpec Γ arg argTy) (lookup : Γ'[n]? = some argTy)
-    (nLtLen : n < Γ'.length)
-    (ha : (Γ'.eraseIdx n ++ Γ)[id]? = some ty₂)
-    (lower : id < n) : n < (Γ'.eraseIdx n).length := by
-  sorry
+lemma List.eraseIdx_post_k
+    {k : Nat} {ls : List α} (shorter : n ≤ k)
+    (hv : (ls.eraseIdx n)[k]? = some z) : (ls[k+1]? = some z) := by
+  induction ls, n using List.eraseIdx.induct generalizing k
+  <;> dsimp [List.eraseIdx] at hv
+  next => contradiction
+  next head as =>
+    rw [List.getElem?_cons_succ]
+    exact hv
+  next a as n ih =>
+    rw [List.getElem?_cons_succ]
+    cases k
+    · contradiction
+    next k =>
+    rw [List.getElem?_cons_succ] at hv
+    rw [Nat.succ_eq_add_one, add_le_add_iff_right] at shorter
+    exact ih shorter hv
+  /- next hd tl n ih => -/
+  /-   cases k -/
+  /-   · simp_all only [Nat.succ_eq_add_one, lt_add_iff_pos_left, add_pos_iff, zero_lt_one, or_true, -/
+  /-       List.length_cons, List.getElem?_eq_getElem, List.getElem_cons_zero, Option.some.injEq] -/
+  /-   next n' => -/
+  /-     simp_all only [Nat.succ_eq_add_one, add_lt_add_iff_right, List.getElem?_cons_succ] -/
+
+/- theorem ReverseBetaTypingX.ex1 -/
+/-     {id : ℕ} {Γ : List Ty} {Γ' : List Ty} -/
+/-     (hArgTy : TySpec Γ arg argTy) (lookup : Γ'[n]? = some argTy) -/
+/-     (nLtLen : n < Γ'.length) -/
+/-     (ha : (Γ'.eraseIdx n ++ Γ)[id]? = some ty₂) -/
+/-     (lower : id < n) : n < (Γ'.eraseIdx n).length := by -/
+/-   sorry -/
   /- induction Γ', n using List.eraseIdx.induct generalizing id Γ -/
   /- <;> (try contradiction) -/
   /- next hd tl n ih => -/
@@ -167,9 +179,39 @@ theorem ReverseBetaTypingX.ex1
 
 theorem ReverseBetaTypingX.bvar (id : ℕ) {Γ : List Ty} {arg : Stx} {argTy : Ty} {Γ' : List Ty} {n : ℕ} {ty₂ : Ty}
     (hArgTy : TySpec Γ arg argTy) (lookup : Γ'[n]? = some argTy)
-    (repl : TySpec (Γ'.eraseIdx n ++ Γ) (Stx.replace.bvar id n arg) ty₂) : TySpec (Γ' ++ Γ) (b:id) ty₂ := by
+    (repl : TySpec (Γ'.eraseIdx n ++ Γ) (Stx.replace.bvar id n arg) ty₂) : TySpec (Γ' ++ Γ) (.bvar id) ty₂ := by
+  have lt := (List.getElem?_length lookup)
   dsimp [Stx.replace.bvar] at repl
   refine .bvar ?_
+  split at repl
+  <;> rename_i heq
+  <;> simp [Nat.compare_eq_eq, Nat.compare_eq_gt, Nat.compare_eq_lt] at heq
+  · -- ~~simple~~ LOL ABSOLUTELY NO.
+    -- maybe false?
+    sorry
+  · -- ~~simple~~ LOL NO.
+    rw [heq]
+    rw [List.getElem?_eq_some] at lookup ⊢
+    rcases lookup with ⟨p, v⟩
+    simp
+    have : n < Γ'.length + Γ.length := calc
+      _ < Γ'.length := p
+      _ ≤ _ := by linarith
+    use this
+    rw [List.getElem_append_left _ Γ p, v]
+    sorry
+  · rcases repl with (repl|_)
+    rw [←List.eraseIdx_append_of_lt_length lt] at repl
+    cases id; contradiction
+    next idx =>
+    rw [add_tsub_cancel_right] at repl
+    exact List.eraseIdx_post_k (Nat.le_of_lt_add_one heq) repl
+    /- case inr heq => -/
+    /-   have := List.eraseIdx_post_k heq repl -/
+    /-   sorry -/
+    /- case inl heq => -/
+    /- sorry -/
+  stop
   have nLtLen := List.getElem?_length lookup
   split at repl
   next h =>
@@ -181,7 +223,6 @@ theorem ReverseBetaTypingX.bvar (id : ℕ) {Γ : List Ty} {arg : Stx} {argTy : T
     <;> cases repl
     case bvar =>
       sorry
-    case fvar => rfl
     case app fn_ih arg_ih _ harg₂ hfn₂ _ harg₁ hfn₁ =>
       exact ((Ty.arr.injEq _ _ _ _).mp (fn_ih hfn₂ nLtLen hfn₁)).2
     case abs body_ih _ hbody₂ _ hbody₁ =>
@@ -233,108 +274,125 @@ theorem ReverseBetaTypingX.bvar (id : ℕ) {Γ : List Ty} {arg : Stx} {argTy : T
   /-     _ ≤ n := idNGt -/
   /-     _ < _ := nLtLen -/
 
+/- theorem ReverseBetaTypingX.ZZ (h : TySpec (Γ.eraseIdx n) (Stx.decAbove n body) ty) : TySpec Γ body ty := -/
+/-   match body with -/
+/-   | .bvar idx => by -/
+/-     simp only [Stx.decAbove, gt_iff_lt, Nat.pred_eq_sub_one] at h -/
+/-     split at h -/
+/-     <;> cases h -/
+/-     next lt h => -/
+/-       cases idx -/
+/-       · contradiction -/
+/-       next idx => -/
+/-       simp at h -/
+/-       sorry -/
+/-       /- have := List.eraseIdx_pre_k lt h -/ -/
+/-       /- sorry -/ -/
+/-     next gte h => -/
+/-       sorry -/
+/-   | .abs ty body => sorry -/
+/-   | .app a b => sorry -/
+
+
+/- theorem ReverseBetaTypingX.bvarX (id : ℕ) {Γ : List Ty} {arg : Stx} {argTy : Ty} {Γ' : List Ty} {n : ℕ} {ty₂ : Ty} -/
+/-     (hArgTy : TySpec Γ arg argTy) (lookup : Γ'[n]? = some argTy) -/
+/-     (repl : TySpec (Γ'.eraseIdx n ++ Γ) ((Stx.replace.bvar id n arg).decAbove n) ty₂) : TySpec (Γ' ++ Γ) (.bvar id) ty₂ := by -/
+/-   simp [Stx.replace.bvar] at repl -/
+/-   split at repl -/
+/-   next nEqId  => -/
+/-     sorry -/
+/-   next nNeqId => -/
+/-     sorry -/
+
 theorem ReverseBetaTypingX
     (hArgTy : TySpec Γ arg argTy) (lookup : Γ'[n]? = some argTy)
     (repl : TySpec (Γ'.eraseIdx n ++ Γ) (Stx.replace n body arg) ty₂)
-    : TySpec (Γ' ++ Γ) body ty₂ := by
-  induction body generalizing arg argTy ty₂ Γ' n Γ
-  <;> dsimp [Stx.replace] at repl
-  case bvar id =>
-    exact ReverseBetaTypingX.bvar id hArgTy lookup repl
-  case fvar =>
+    : TySpec (Γ' ++ Γ) body ty₂ :=
+  match body with
+  | .bvar id => ReverseBetaTypingX.bvar id hArgTy lookup repl
+  | .app a b => by
     cases repl
-    exact .fvar
-  case app fn_ih arg_ih =>
-    cases repl
-    next harg hfn =>
-    exact .app (fn_ih hArgTy lookup hfn) (arg_ih hArgTy lookup harg)
-  case abs ty body body_ih =>
+    next hArg hFn =>
+    exact .app (ReverseBetaTypingX hArgTy lookup hFn) (ReverseBetaTypingX hArgTy lookup hArg)
+  | .abs ty body => by
     cases repl
     next retTy hrepl =>
     refine .abs ?_
     rw [←List.cons_append _ _ _]
-    apply body_ih (n := n+1) hArgTy
+    apply ReverseBetaTypingX (n := n+1) hArgTy
     · simp only [List.getElem?_cons_succ]
-      assumption
+      exact lookup
     · rw [←List.cons_append _ _ _, ← List.eraseIdx_cons_succ] at hrepl
       exact hrepl
 
-theorem ReverseBetaTyping
-    (hArgTy : TySpec Γ arg argTy) (lookup : Γ'[n]? = some argTy)
-    (repl : TySpec (Γ) (Stx.replace n body arg) ty₂) : TySpec (Γ' ++ Γ) body ty₂ := by
-  induction body generalizing arg argTy ty₂ Γ' n Γ
-  <;> dsimp [Stx.replace] at repl
-  case bvar id =>
-    sorry
-    /- exact ReverseBetaTypingX.bvar id hArgTy lookup repl -/
-  case fvar =>
-    cases repl
-    exact .fvar
-  case app fn_ih arg_ih =>
-    cases repl
-    next harg hfn =>
-    exact .app (fn_ih hArgTy lookup hfn) (arg_ih hArgTy lookup harg)
-  case abs ty body body_ih =>
-    cases repl
-    next retTy hrepl =>
-    refine .abs ?_
-    rw [←List.cons_append _ _ _]
-    /- rw [←List.cons_append _ _ _, ← List.eraseIdx_cons_succ] at hrepl -/
-    /- stop -/
-    apply body_ih (n := n+1) hArgTy
-    · simp only [List.getElem?_cons_succ]
-      assumption
-    · sorry
-      /- exact hrepl -/
 /- theorem ReverseBetaTyping -/
 /-     (hArgTy : TySpec Γ arg argTy) (lookup : Γ'[n]? = some argTy) -/
-/-     (repl : TySpec Γ (Stx.replace n body arg) ty₂) : TySpec Γ' body ty₂ := by -/
+/-     (repl : TySpec (Γ) (Stx.replace n body arg) ty₂) : TySpec (Γ' ++ Γ) body ty₂ := by -/
 /-   induction body generalizing arg argTy ty₂ Γ' n Γ -/
 /-   <;> dsimp [Stx.replace] at repl -/
-/-   · split at repl -/
-/-     next h => -/
-/-       rw [h] -/
-/-       refine .bvar ?_ -/
-/-       sorry -/
-/-       /- simp only [List.length_cons, lt_add_iff_pos_left, add_pos_iff, zero_lt_one, or_true, -/ -/
-/-       /-   List.getElem?_eq_getElem, List.getElem_cons_zero, Option.some.injEq] -/ -/
-/-     · sorry -/
-/-   · cases repl -/
-/-     exact .fvar -/
+/-   case bvar id => -/
+/-     exact ReverseBetaTypingX.bvar id hArgTy lookup repl -/
 /-   case app fn_ih arg_ih => -/
 /-     cases repl -/
 /-     next harg hfn => -/
-/-     sorry -/
+/-     exact .app (fn_ih hArgTy lookup hfn) (arg_ih hArgTy lookup harg) -/
 /-   case abs ty body body_ih => -/
 /-     cases repl -/
 /-     next retTy hrepl => -/
 /-     refine .abs ?_ -/
+/-     rw [←List.cons_append _ _ _] -/
+/-     /- rw [←List.cons_append _ _ _, ← List.eraseIdx_cons_succ] at hrepl -/ -/
+/-     /- stop -/ -/
 /-     apply body_ih (n := n+1) hArgTy -/
 /-     · simp only [List.getElem?_cons_succ] -/
 /-       assumption -/
-/-     sorry -/
+/-     · sorry -/
+/-       /- exact hrepl -/ -/
+/- /- theorem ReverseBetaTyping -/ -/
+/- /-     (hArgTy : TySpec Γ arg argTy) (lookup : Γ'[n]? = some argTy) -/ -/
+/- /-     (repl : TySpec Γ (Stx.replace n body arg) ty₂) : TySpec Γ' body ty₂ := by -/ -/
+/- /-   induction body generalizing arg argTy ty₂ Γ' n Γ -/ -/
+/- /-   <;> dsimp [Stx.replace] at repl -/ -/
+/- /-   · split at repl -/ -/
+/- /-     next h => -/ -/
+/- /-       rw [h] -/ -/
+/- /-       refine .bvar ?_ -/ -/
+/- /-       sorry -/ -/
+/- /-       /- simp only [List.length_cons, lt_add_iff_pos_left, add_pos_iff, zero_lt_one, or_true, -/ -/ -/
+/- /-       /-   List.getElem?_eq_getElem, List.getElem_cons_zero, Option.some.injEq] -/ -/ -/
+/- /-     · sorry -/ -/
+/- /-   case app fn_ih arg_ih => -/ -/
+/- /-     cases repl -/ -/
+/- /-     next harg hfn => -/ -/
+/- /-     sorry -/ -/
+/- /-   case abs ty body body_ih => -/ -/
+/- /-     cases repl -/ -/
+/- /-     next retTy hrepl => -/ -/
+/- /-     refine .abs ?_ -/ -/
+/- /-     apply body_ih (n := n+1) hArgTy -/ -/
+/- /-     · simp only [List.getElem?_cons_succ] -/ -/
+/- /-       assumption -/ -/
+/- /-     sorry -/ -/
 
-theorem TypePreservation : Red e₁ e₂ → TySpec Γ e₁ ty₁ → TySpec Γ e₂ ty₂ → ty₁ = ty₂ := by
-  intro h hty₁ hty₂
-  induction e₁ generalizing e₂ ty₁ ty₂
-  <;> cases h
-  case appl a b a_ih _ a' ha =>
+theorem TypePreservation (h : Red e₁ e₂) (hty₁ : TySpec Γ e₁ ty₁) (hty₂ : TySpec Γ e₂ ty₂) : ty₁ = ty₂ :=
+  match h with
+  | .appl h => by
     cases hty₁
-    next bty₁ hb₁ ha₁ =>
     cases hty₂
-    next bty₂ hb₂ ha₂ =>
-    exact ((Ty.arr.injEq _ _ _ _).mp $ a_ih ha ha₁ ha₂).2
+    next bty₁ hb₁ ha₁ bty₂ hb₂ ha₂ =>
 
-  case appr a b a_ih _ b' hb =>
+    exact ((Ty.arr.injEq _ _ _ _).mp $ TypePreservation h ha₁ ha₂).2
+
+  | .appr h => by
     cases hty₁
-    next bty₁ hb₁ ha₁ =>
     cases hty₂
-    next bty₂ hb₂ ha₂ =>
+    next bty₁ hb₁ ha₁ bty₂ hb₂ ha₂ =>
+
     exact ((Ty.arr.injEq _ _ _ _).mp $ TyUnique ha₁ ha₂).2
 
-  case beta arg _ argTy body _ =>
+  | .beta => by
     cases hty₁
-    next argTy hArgTy hfn =>
+    next argTy _ v argTy hArgTy hfn =>
     cases hfn
     next hfn =>
     dsimp [Stx.β] at hty₂
@@ -344,42 +402,3 @@ theorem TypePreservation : Red e₁ e₂ → TySpec Γ e₁ ty₁ → TySpec Γ 
 
     refine TyUnique hfn (ReverseBetaTypingX hArgTy ?_ hty₂)
     simp only [List.length_singleton, zero_lt_one, List.getElem?_eq_getElem, List.getElem_cons_zero]
-    /- clear arg_ih fn_ih -/
-    /- rcases hty₁ -/
-    /- next argTy' a b => -/
-    /- cases b -/
-    /- next hbody => -/
-    /- induction body -/
-    /- <;> dsimp [Stx.β, Stx.replace] at hty₂ -/
-    /- case bvar id => -/
-    /-   split at hty₂ -/
-    /-   · cases hbody -/
-    /-     simp_all only [List.length_cons, lt_add_iff_pos_left, add_pos_iff, zero_lt_one, or_true, -/
-    /-       List.getElem?_eq_getElem, List.getElem_cons_zero, Option.some.injEq] -/
-    /-     exact TyUnique a (shiftMaintains [] hty₂) -/
-
-    /-   · cases id -/
-    /-     contradiction -/
-    /-     simp only [gt_iff_lt, lt_add_iff_pos_left, add_pos_iff, zero_lt_one, or_true, ↓reduceIte, -/
-    /-       add_tsub_cancel_right] at hty₂ -/
-    /-     cases hbody -/
-    /-     cases hty₂ -/
-    /-     simp_all only [add_eq_zero, one_ne_zero, and_false, not_false_eq_true, -/
-    /-       List.getElem?_cons_succ, Option.some.injEq] -/
-
-    /- · cases hty₂ -/
-    /-   cases hbody -/
-    /-   rfl -/
-    /- case app fn_ih arg_ih => -/
-    /-   cases hty₂ -/
-    /-   cases hbody -/
-    /-   next arg₂ fn₂ _ arg₁ fn₁=> -/
-    /-   sorry -/
-    /- case abs body_ih => -/
-    /-   cases hty₂ -/
-    /-   cases hbody -/
-    /-   sorry -/
-
-    /- /- cases hty₁ -/ -/
-    /- /- next argTy₁ hty₁  hfull₁ => -/ -/
-    /- /- exact TypePreservation.beta arg arg_ih fn_ih hty₂ hty₁ hfull₁ -/ -/
