@@ -251,100 +251,6 @@ example : ¬∃ n, RefSet (.abs (.direct 0) (.bvar 0)) n := by
 example : ¬∃ n, RefSet (.abs (.direct 0) (.bvar 0)) n := by
   intro ⟨n, x⟩ ; simp only [RefSet_abs, RefSet_bvar] at x
 
-/- def replace.bvar (bvarId idx_shift : ℕ) (replace : Stx) : Stx := -/
-/-   if idx_shift = bvarId then replace.bvarShift idx_shift 0 -/
-/-   else .bvar bvarId -/
-
-/- -- Replace also needs to add idx to every value within replace to ensure that the binders still point towards the right points -/
-/- def replace (idx_shift : ℕ) (body replace : Stx) : Stx := match body with -/
-/-   | .bvar n => Stx.replace.bvar n idx_shift replace -/
-/-   | .app fn arg => .app (fn.replace idx_shift replace) (arg.replace idx_shift replace) -/
-/-   | .abs ty v => .abs ty (v.replace idx_shift.succ replace) -/
-
-/- theorem replace_with_non_RefSet {body : Stx} (h : ¬RefSet body idx) : body.replace idx repl = body := -/
-/-   match body with -/
-/-   | .bvar jdx => by -/
-/-     simp only [replace, replace.bvar, ite_eq_right_iff] -/
-/-     rintro rfl -/
-/-     exfalso -/
-/-     exact h .bvar -/
-/-   | .abs ty body => by -/
-/-     simp only [replace, Nat.succ_eq_add_one, abs.injEq, true_and, RefSet_abs] at h ⊢ -/
-/-     exact replace_with_non_RefSet h -/
-/-   | .app a b => by -/
-/-     simp only [replace, app.injEq, RefSet_app, not_or] at h ⊢ -/
-/-     exact ⟨replace_with_non_RefSet h.1, replace_with_non_RefSet h.2⟩ -/
-
-/- def decAbove (n : ℕ) : Stx → Stx -/
-/-   | .bvar idx    => .bvar $ if idx > n then idx.pred else idx -/
-/-   | .abs ty body => .abs ty $ body.decAbove n.succ -/
-/-   | .app a b     => .app (a.decAbove n) (b.decAbove n) -/
-
-/- theorem minVDist {a b : Stx} (h : (a.app b).minV = some bot) : -/
-/-     (a.minV = .none ∨ (∃ am, a.minV = some am ∧ bot ≤ am)) ∧ -/
-/-     (b.minV = .none ∨ (∃ bm, b.minV = some bm ∧ bot ≤ bm)) := by -/
-/-   simp only [minV] at h -/
-/-   split at h -/
-/-   <;> simp only [Option.some.injEq] at h -/
-/-   next a b ha hb => -/
-/-     rcases min_eq_iff.mp h with (⟨_, _⟩|⟨_, _⟩) -/
-/-     <;> refine ⟨.inr ⟨_, ha, ?_⟩ , .inr ⟨_, hb, ?_⟩⟩ -/
-/-     <;> simp_all only [min_eq_left_iff, le_refl] -/
-/-   next ha hb => -/
-/-     exact ⟨.inl ha, .inr ⟨_, hb, Nat.le_of_eq (Eq.symm h)⟩⟩ -/
-/-   next ha hb => -/
-/-     exact ⟨.inr ⟨_, ha, Nat.le_of_eq (Eq.symm h)⟩, .inl hb⟩ -/
-
-/- mutual -/
-/- theorem replace_maxVLtNone {body : Stx} (h : body.maxV = none) : body.replace idx repl = body := -/
-/-   match body with -/
-/-   | .bvar n => by simp only [maxV] at h -/
-/-   | .app a b => by -/
-/-     simp [maxV, replace] at h ⊢ -/
-/-     split at h <;> try contradiction -/
-/-     next ha hb => -/
-/-     exact ⟨replace_maxVLtNone ha, replace_maxVLtNone hb⟩ -/
-/-   | .abs ty body => by -/
-/-     simp only [replace, Nat.succ_eq_add_one, abs.injEq, true_and] -/
-/-     cases maxVEitherZOrNone h -/
-/-     case inl h => -/
-/-       exact replace_maxVLtNone h -/
-/-     case inr h => -/
-/-       exact replace_maxVLtSome h (Nat.zero_lt_succ idx) -/
-
-/- theorem replace_maxVLtSome {body : Stx} (h : body.maxV = some mV) (lt : mV < idx) : body.replace idx repl = body := -/
-/-   match body with -/
-/-   | .bvar n => by -/
-/-     simp only [maxV, Option.some.injEq] at h -/
-/-     simp only [replace, replace.bvar, ite_eq_right_iff] -/
-/-     intro idxEqN -/
-/-     rw [←h,idxEqN] at lt -/
-/-     exfalso -/
-/-     exact (lt_self_iff_false n).mp lt -/
-/-   | .app a b => by -/
-/-     simp only [replace, app.injEq] -/
-/-     simp only [maxV] at h -/
-/-     split at h -/
-/-     <;> simp only [Option.some.injEq] at h -/
-/-     next av bv hA hB => -/
-/-       obtain ⟨hALe, hBLe⟩ := Nat.max_le.mp (Nat.le_of_eq h) -/
-/-       exact ⟨ -/
-/-         replace_maxVLtSome hA (Nat.lt_of_le_of_lt hALe lt), -/
-/-         replace_maxVLtSome hB (Nat.lt_of_le_of_lt hBLe lt) -/
-/-       ⟩ -/
-/-     next av hA hB => -/
-/-       rw [h] at hB -/
-/-       exact ⟨replace_maxVLtNone hA, replace_maxVLtSome hB lt⟩ -/
-/-     next bv hA hB => -/
-/-       rw [h] at hA -/
-/-       exact ⟨replace_maxVLtSome hA lt, replace_maxVLtNone hB⟩ -/
-/-   | .abs ty body => by -/
-/-     simp only [replace, Nat.succ_eq_add_one, abs.injEq, true_and] -/
-/-     exact replace_maxVLtSome (maxVAppSome h) (Nat.succ_lt_succ lt) -/
-/- end -/
-
-/- def β (body repl : Stx) : Stx := (body.replace 0 repl).decAbove 0 -/
-
 def replace.bvar (bvarId idx_shift : ℕ) (replace : Stx) : Stx :=
   match compare bvarId idx_shift with
   | .lt => .bvar bvarId
@@ -446,8 +352,7 @@ lemma RefSet_dist : RefSet (.abs ty (.app a b)) idx ↔ RefSet (.abs ty a) idx �
   constructor
   <;> intro h
   <;> simp only [RefSet_abs, RefSet_app] at h ⊢
-  · exact h
-  · exact h
+  <;> exact h
 
 theorem VarFwd_generalized (h : RefSet (body.replace n repl) (idx + n))
     : RefSet (.abs ty' body) (idx + n) ∨ repl.RefSet idx :=
@@ -480,6 +385,59 @@ theorem VarFwd_generalized (h : RefSet (body.replace n repl) (idx + n))
     next h => exact .inl $ .inr h
     next h => exact .inr h
 
+/-- A β-reduction must always be a subset of the original referenced variables -/
 theorem VarFwd (h : RefSet (body.β repl) idx) : RefSet (.app (.abs ty body) repl) idx := by
   rw [RefSet_app]
   exact VarFwd_generalized h
+
+mutual
+inductive NonEval : Stx → Prop
+  | bvar : NonEval (.bvar idx)
+  | app (lhs : NonEval a) (rhs : Terminal b) : NonEval (.app a b)
+
+inductive Terminal : Stx → Prop
+  | abs (h : Terminal a) : Terminal (.abs ty a)
+  | nonEval (h : NonEval a) : Terminal a
+end
+
+@[simp]
+theorem Terminal_abs : Terminal (.abs ty a) ↔ Terminal a := by
+  constructor
+  <;> intro h
+  · cases h
+    next h => exact h
+    next h => cases h
+  · exact .abs h
+
+@[simp]
+theorem NonEval_bvar : NonEval (.bvar idx) ↔ True := by
+  constructor <;> intro _
+  · trivial
+  · exact .bvar
+
+@[simp]
+theorem Terminal_bvar : Terminal (.bvar idx) ↔ True := by
+  constructor <;> intro _
+  · trivial
+  · exact .nonEval .bvar
+
+@[simp]
+theorem Terminal_app : Terminal (.app a b) ↔ (NonEval a) ∧ (Terminal b) := by
+  constructor
+  <;> intro h
+  · cases h; next h =>
+    cases h; next a b =>
+    exact ⟨a, b⟩
+  · rcases h with ⟨a, b⟩
+    exact .nonEval $ .app a b
+
+@[simp]
+theorem NonEval_app : NonEval (.app a b) ↔ (NonEval a) ∧ (Terminal b) := by
+  constructor
+  <;> intro h
+  · cases h; next a b =>
+    exact ⟨a, b⟩
+  · rcases h with ⟨a, b⟩
+    exact .app a b
+
+end STLC.Stx
