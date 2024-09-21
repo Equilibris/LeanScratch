@@ -5,10 +5,15 @@ import LeanScratch.Relation
 namespace STLC
 
 inductive Red : Stx → Stx → Prop
-  | appl : Red a a' → Red (.app a b) (.app a' b)
-  | appr : Red b b' → Red (.app a b) (.app a b')
+  | appl  : Red a a' → Red (.app a b ) (.app a' b)
+  | appr  : Red b b' → Red (.app a b ) (.app a b')
   | congr : Red a a' → Red (.abs ty a) (.abs ty a')
-  | beta : Red (.app (.abs _ body) v) (body.β v)
+  | beta  : Red (.app (.abs _ body) v) (body.β v)
+
+inductive Ord : Stx → Stx → Prop
+  | appl  : Ord a a' → Ord (.app a b ) (.app a' b)
+  | appr  : Ord b b' → Ord (.app a b ) (.app a b')
+  | congr : Ord a a' → Ord (.abs ty a) (.abs ty a')
 
 @[simp]
 theorem Red_abs : Red (.abs ty body) a ↔ ∃ body', (Red body body') ∧ a = .abs ty body' := by
@@ -20,10 +25,10 @@ theorem Red_abs : Red (.abs ty body) a ↔ ∃ body', (Red body body') ∧ a = .
     exact .congr h
 
 open Stx in
-theorem Red.VarFwd (r : Red a b) (next : RefSet b idx ) : RefSet a idx :=
+theorem Red.VarFwd (r : Red a b) (next : RefSet b idx) : RefSet a idx :=
   match r with
   | .appl h => by
-    simp only [RefSet_app] at next ⊢
+    rw [RefSet_app] at next ⊢
     match next with
     | .inl h' => exact .inl $ Red.VarFwd h h'
     | .inr h' => exact .inr h'
@@ -31,7 +36,7 @@ theorem Red.VarFwd (r : Red a b) (next : RefSet b idx ) : RefSet a idx :=
     rw [RefSet_abs] at next ⊢
     exact Red.VarFwd h next
   | .appr h => by
-    simp only [RefSet_app] at next ⊢
+    rw [RefSet_app] at next ⊢
     match next with
     | .inl h' => exact .inl h'
     | .inr h' => exact .inr $ Red.VarFwd h h'

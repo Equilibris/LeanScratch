@@ -2,6 +2,7 @@ import LeanScratch.Semantics.STLC.Stx
 import LeanScratch.Semantics.STLC.Red
 import Mathlib.Data.Rel
 import LeanScratch.Relation
+import LeanScratch.Rel2
 
 namespace STLC
 
@@ -15,51 +16,44 @@ def step : Stx → Option Stx
     | .none, .some b
     | .some a, .some b => .some $ .app a b
 
-lemma RedPlus_congr (h : RedPlus body w) : RedPlus (.abs ty body) (.abs ty w) := by
-  induction h
-  case single h     => exact .single $ .congr h
-  case tail body ih => exact .tail ih $ .congr body
+lemma RedPlus_congr : RedPlus body w → RedPlus (.abs ty body) (.abs ty w) :=
+  Relation.transGenMap .congr
 
-lemma RedPlus_appl (h : RedPlus a w) : RedPlus (.app a b) (.app w b) := by
-  induction h
-  case single h     => exact .single $ .appl h
-  case tail body ih => exact .tail ih $ .appl body
+lemma RedPlus_appl : RedPlus a w → RedPlus (.app a b) (.app w b) :=
+  Relation.transGenMap (fun {x y} => @Red.appl x y b)
 
-lemma RedPlus_appr (h : RedPlus a w) : RedPlus (.app b a) (.app b w) := by
-  induction h
-  case single h     => exact .single $ .appr h
-  case tail body ih => exact .tail ih $ .appr body
+lemma RedPlus_appr  : RedPlus a w → RedPlus (.app b a) (.app b w) :=
+  Relation.transGenMap (fun {x y} => @Red.appr x y b)
 
 theorem step_some_RedPlus (h : step main = .some a₁) : RedPlus main a₁ := 
   match main with
   | .bvar id => by simp only [step] at h
   | .abs ty body => by
-    simp only [step, Option.map_eq_some'] at h
+    rw [step, Option.map_eq_some'] at h
     rcases h with ⟨w, h, rfl⟩
     exact RedPlus_congr $ step_some_RedPlus h
   | .app a b => by
     by_cases isAbs : ∃ ty body, a = .abs ty body
     · rcases isAbs with ⟨ty,body, rfl⟩
-      simp only [step, Option.some.injEq] at h
+      rw [step, Option.some.injEq] at h
       rw [←h]
       exact .single .beta
     · simp only [not_exists] at isAbs
       unfold step at h
       split at h
       <;> try contradiction
-      next heq => simp_all only [Stx.app.injEq, false_and]
+      next heq =>
+        simp_all only [Stx.app.injEq, false_and]
       next heq =>
         split at h
         <;> simp only [Option.some.injEq] at h
         <;> rw [←h, heq]
-        next a b _ _ _ a' ha hb =>
+        next ha _ =>
           exact RedPlus_appl $ step_some_RedPlus ha
-        next ha hb =>
+        next hb =>
           exact RedPlus_appr $ step_some_RedPlus hb
-        next a b _ _ _ a' b' ha hb =>
-          calc
-            RedPlus _ (.app _ _) := RedPlus_appr $ step_some_RedPlus hb
-            RedPlus _ (.app _ _) := RedPlus_appl $ step_some_RedPlus ha
+        next ha hb =>
+          exact (RedPlus_appr $ step_some_RedPlus hb).trans (RedPlus_appl $ step_some_RedPlus ha)
 termination_by SizeOf.sizeOf main
 decreasing_by
   all_goals simp_wf
@@ -83,7 +77,7 @@ theorem step_none_terminal (h : step main = .none) : Stx.Terminal main :=
       split at h
       <;> try contradiction
       next heq _ _ ha hb =>
-      simp only [Stx.app.injEq] at heq
+      rw [Stx.app.injEq] at heq
       rcases heq with ⟨haa, hbb⟩
       simp_all only [false_implies, implies_true, Stx.Terminal_app]
       have ha := step_none_terminal ha

@@ -66,49 +66,6 @@ theorem TyUnique (a : TySpec Γ i o₁) (b : TySpec Γ i o₂) : o₁ = o₂ :=
     next a ty₁ b ty₂ =>
     exact (Ty.arr.injEq _ _ _ _).mpr ⟨rfl, TyUnique ty₁ ty₂⟩
 
-lemma List.getElem?_length {ls : List α} (h : ls[n]? = some v) : n < ls.length :=
-  match ls with
-  | .nil => Option.noConfusion h
-  | .cons hd tl =>
-    match n with
-    | 0 => Nat.zero_lt_succ _
-    | n+1 => by
-      rw [List.length_cons, add_lt_add_iff_right]
-      rw [List.getElem?_cons_succ] at h
-      exact List.getElem?_length h
-
-lemma List.eraseIdx_pre_k
-    {k : Nat} {ls : List α} (shorter : k < n)
-    (hv : (ls.eraseIdx n)[k]? = some z) : (ls[k]? = some z) := by
-  induction ls, n using List.eraseIdx.induct generalizing k
-  <;> dsimp [List.eraseIdx] at hv
-  <;> (try contradiction)
-  next hd tl n ih =>
-    cases k
-    · rw [List.getElem?_cons_zero, Option.some.injEq] at hv ⊢
-      exact hv
-    next n' =>
-      rw [List.getElem?_cons_succ] at hv ⊢
-      rw [add_lt_add_iff_right] at shorter
-      exact ih shorter hv
-
-lemma List.eraseIdx_post_k
-    {k : Nat} {ls : List α} (shorter : n ≤ k)
-    (hv : (ls.eraseIdx n)[k]? = some z) : (ls[k+1]? = some z) := by
-  induction ls, n using List.eraseIdx.induct generalizing k
-  <;> dsimp only [List.eraseIdx] at hv
-  next => contradiction
-  next head as =>
-    rw [List.getElem?_cons_succ]
-    exact hv
-  next a as n ih =>
-    rw [List.getElem?_cons_succ]
-    cases k
-    · contradiction
-    next k =>
-    rw [List.getElem?_cons_succ] at hv
-    rw [Nat.succ_eq_add_one, add_le_add_iff_right] at shorter
-    exact ih shorter hv
 
 theorem bvarShift_maintain_gen
     (h : TySpec (Γ₂ ++ Γ) body ty₂)

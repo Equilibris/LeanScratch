@@ -22,7 +22,20 @@ inductive Stx
 /- scoped prefix:30 "b:" => Stx.bvar -/
 /- scoped infixl:30 " @ " => Stx.app -/
 
+/- def analyze : Stx → LamTree -/
+/-   | .bvar _ => .intro [] -/
+/-   | .app a b => -/
+/-     let .intro a := analyze a -/
+/-     let .intro b := analyze b -/
+/-     .intro (a ++ b) -/
+/-   | .abs _ body => .intro [analyze body] -/
+
 namespace Stx
+
+/- inductive Ord : Stx → Stx → Prop -/
+/-   | appl  : Ord a a' → Ord (.app a b ) (.app a' b) -/
+/-   | appr  : Ord b b' → Ord (.app a b ) (.app a b') -/
+/-   | congr : Ord a a' → Ord (.abs ty a) (.abs ty a') -/
 
 def bvarShift (shift skip : ℕ) : Stx → Stx
   | .bvar n => .bvar $ if n < skip then n else n + shift
@@ -58,160 +71,6 @@ theorem bvarShift.inv : Stx.bvarShift 0 n z = z := by
     simp only [Stx.abs.injEq, true_and]
     exact ih
 
-def maxV : Stx → Option ℕ
-  | .bvar n => .some n
-  | .abs _ b => b.maxV >>= Nat.ppred
-  | .app a b => match a.maxV, b.maxV with
-    | .some a, .some b => .some $ max a b
-    | .none, .some a | .some a, .none => .some a
-    | .none, .none => .none     -- This can be less patterns but this simplifies simps
-
-def minV : Stx → Option ℕ
-  | .bvar n => .some n
-  | .abs _ b => b.minV >>= Nat.ppred
-  | .app a b => match a.minV, b.minV with
-    | .some a, .some b => .some $ min a b
-    | .none, .some a | .some a, .none => .some a
-    | .none, .none => .none     -- This can be less patterns but this simplifies simps
-
-example : minV (.abs (.direct 0) $ .bvar 0) = none   := by simp only [minV, Option.bind_eq_bind, Option.some_bind, Nat.ppred_zero]
-example : minV (.abs (.direct 0) $ .bvar 1) = some 0 := by simp only [minV, Option.bind_eq_bind, Option.some_bind, Nat.ppred_succ]
-example : minV (.app (.bvar 2) (.bvar 1)) = some 1   := by simp only [minV, Nat.one_le_ofNat, min_eq_right]
-example (h : body.minV = .none) : minV (.abs (.direct 0) body) = none := by
-  simp only [minV, Option.bind_eq_bind, Option.bind_eq_none, Nat.ppred_eq_none]
-  intro n x
-  simp_all only
-example (h : body.minV = .some 0) : minV (.abs (.direct 0) body) = none := by
-  simp only [minV, Option.bind_eq_bind, Option.bind_eq_none, Nat.ppred_eq_none]
-  intro n x
-  simp_all only [Option.some.injEq]
-example (h : body.minV = .some (n + 1)) : ∃ w, minV (.abs (.direct 0) body) = some w := by
-  simp only [minV, Option.bind_eq_bind]
-  use n
-  rw [h]
-  simp only [Option.some_bind, Nat.ppred_succ]
-
-theorem minVEitherZOrNone (h : (abs ty body).minV = none) : body.minV = none ∨ body.minV = some 0 := by
-  simp_all only [minV]
-  induction body
-  case bvar id => simp_all only [minV, Option.bind_eq_bind, Option.some_bind, Nat.ppred_eq_none,
-    or_true]
-  case app fn arg fn_ih arg_ih =>
-    simp_all only [minV, Option.bind_eq_bind, Option.bind_eq_none, Nat.ppred_eq_none]
-    split
-    <;> simp_all only [Option.some.injEq, forall_eq', Nat.zero_min, or_true, implies_true,
-      Nat.min_zero, Nat.min_eq_zero_iff]
-  case abs ty' body _ =>
-    by_contra!
-    rcases this with ⟨a, b⟩
-    simp only [minV, Option.bind_eq_bind, Option.bind_eq_none, Nat.ppred_eq_none, ne_eq,
-      not_forall, Classical.not_imp] at h a b
-    rcases a with ⟨w, pEqSome, nez⟩
-    simp only [pEqSome, Option.some_bind, Nat.ppred_eq_some, Nat.succ_eq_add_one] at h
-    obtain ⟨w', p'⟩ := Nat.exists_eq_succ_of_ne_zero nez
-    rw [p'] at h
-    specialize h w' (by simp only [Nat.succ_eq_add_one])
-    simp_all only [Nat.succ_eq_add_one, zero_add, Option.bind_eq_bind, Option.some_bind,
-      Nat.ppred_succ, Option.some.injEq, one_ne_zero, or_true, false_implies, not_true_eq_false]
-theorem maxVEitherZOrNone (h : (abs ty body).maxV = none) : body.maxV = none ∨ body.maxV = some 0 := by
-  simp_all only [maxV]
-  induction body
-  case bvar id => simp_all only [maxV, Option.bind_eq_bind, Option.some_bind, Nat.ppred_eq_none,
-    or_true]
-  case app fn arg fn_ih arg_ih =>
-    simp_all only [maxV, Option.bind_eq_bind, Option.bind_eq_none, Nat.ppred_eq_none]
-    split
-    <;> simp_all only [Option.some.injEq, forall_eq', Nat.zero_min, or_true, implies_true,
-      Nat.min_zero, Nat.min_eq_zero_iff]
-  case abs ty' body _ =>
-    by_contra!
-    rcases this with ⟨a, b⟩
-    simp only [maxV, Option.bind_eq_bind, Option.bind_eq_none, Nat.ppred_eq_none, ne_eq,
-      not_forall, Classical.not_imp] at h a b
-    rcases a with ⟨w, pEqSome, nez⟩
-    simp only [pEqSome, Option.some_bind, Nat.ppred_eq_some, Nat.succ_eq_add_one] at h
-    obtain ⟨w', p'⟩ := Nat.exists_eq_succ_of_ne_zero nez
-    rw [p'] at h
-    specialize h w' (by simp only [Nat.succ_eq_add_one])
-    simp_all only [Nat.succ_eq_add_one, zero_add, Option.bind_eq_bind, Option.some_bind,
-      Nat.ppred_succ, Option.some.injEq, one_ne_zero, or_true, false_implies, not_true_eq_false]
-theorem maxVAppSome (h : (abs ty body).maxV = some m) : body.maxV = some m.succ := by
-  simp only [maxV, Option.bind_eq_bind] at h
-  by_cases hz : ∃ w, body.maxV = some w
-  · rcases hz with ⟨w, p⟩
-    simp_all only [Option.some_bind, Nat.ppred_eq_some, Nat.succ_eq_add_one]
-  · simp only [not_exists] at hz
-    rw [Option.eq_none_iff_forall_not_mem.mpr hz] at h
-    contradiction
-
-mutual
-theorem bvarShiftNoneSkip shift skip (h : body.maxV = none) : (bvarShift shift skip body) = body :=
-  match body with
-  | .bvar idx => by simp only [bvarShift, maxV] at *
-  | .app a b => by
-    simp_all only [bvarShift, maxV]
-    split at h <;> simp_all
-    next ha hb =>
-    exact ⟨bvarShiftNoneSkip shift skip ha, bvarShiftNoneSkip shift skip hb⟩
-  | .abs ty body => 
-    match maxVEitherZOrNone h with
-    | .inl a => by
-      simp only [bvarShift, Nat.succ_eq_add_one, abs.injEq, true_and]
-      exact bvarShiftNoneSkip shift (skip + 1) a
-    | .inr a => by
-      simp only [bvarShift, Nat.succ_eq_add_one, abs.injEq, true_and]
-      exact bvarShiftSomeSkip shift (skip + 1) a (Nat.zero_lt_succ skip)
-
-theorem bvarShiftSomeSkip shift skip (h : body.maxV = some m) (h' : m < skip): (bvarShift shift skip body) = body :=
-  match body with
-  | .bvar idx => by
-    simp only [maxV, Option.some.injEq] at h
-    simp only [bvarShift, h, bvar.injEq, ite_eq_left_iff, not_lt, add_right_eq_self]
-    intro hz
-    exfalso
-    exact Nat.le_lt_asymm hz h'
-  | .app a b => by
-    simp only [maxV] at h
-    split at h
-    <;> simp only [Option.some.injEq] at h
-    <;> simp only [bvarShift, app.injEq]
-    next a b hFn hArg =>
-      obtain ⟨ha, hb⟩ := Nat.max_lt.mp (calc
-        _ = m := h
-        _ < skip := h')
-
-      exact ⟨
-        bvarShiftSomeSkip shift skip hFn  ha,
-        bvarShiftSomeSkip shift skip hArg hb
-      ⟩
-    next a hFn hArg =>
-      rw [←h] at h'
-      exact ⟨
-        bvarShiftNoneSkip shift skip hFn,
-        bvarShiftSomeSkip shift skip hArg h'
-      ⟩
-    next a hFn hArg =>
-      rw [←h] at h'
-      exact ⟨
-        bvarShiftSomeSkip shift skip hFn h',
-        bvarShiftNoneSkip shift skip hArg
-      ⟩
-  | .abs ty body => by
-    simp only [bvarShift, Nat.succ_eq_add_one, abs.injEq, true_and]
-    exact bvarShiftSomeSkip shift (skip + 1) (maxVAppSome h) (Nat.succ_lt_succ h')
-end
-
-/-- info: 'STLC.Stx.bvarShiftSomeSkip' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms bvarShiftSomeSkip
-/-- info: 'STLC.Stx.bvarShiftNoneSkip' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms bvarShiftNoneSkip
-
-theorem empty_bvarShift (hMin : s.minV = .none) (hMax : s.maxV = .none) : (bvarShift shift n s).minV = .none ∧ (bvarShift shift n s).maxV = .none :=
-  match s with
-  | .bvar id => by contradiction
-  | .abs ty body | .app a b => by
-    simp only [bvarShiftNoneSkip shift n hMax]
-    exact ⟨hMin, hMax⟩
 
 inductive RefSet : Stx → ℕ → Prop
   | appL : RefSet body idx → RefSet (.app body a) idx
