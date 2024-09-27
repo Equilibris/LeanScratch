@@ -9,6 +9,7 @@ namespace STLC
 inductive Ty
   | direct (id : ℕ)
   | arr (fn arg : Ty)
+deriving DecidableEq
 
 infixr:30 " ⇒ " => Ty.arr
 prefix:30 "↑" => Ty.direct
@@ -17,6 +18,7 @@ inductive Stx
   | bvar (id : ℕ)
   | app  (fn arg : Stx)
   | abs  (ty : Ty) (body : Stx)
+deriving DecidableEq
 
 /- scoped prefix:30 "λ: " => Stx.abs -/
 /- scoped prefix:30 "b:" => Stx.bvar -/
@@ -70,7 +72,6 @@ theorem bvarShift.inv : Stx.bvarShift 0 n z = z := by
   case abs ty body ih=>
     simp only [Stx.abs.injEq, true_and]
     exact ih
-
 
 inductive RefSet : Stx → ℕ → Prop
   | appL : RefSet body idx → RefSet (.app body a) idx
