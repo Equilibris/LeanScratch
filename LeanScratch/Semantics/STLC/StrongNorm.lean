@@ -212,7 +212,6 @@ theorem bvarArity_BvarArity : bvarArity i s = n ↔ BvarArity i s n := match s w
 
 end Counting
 
-namespace Bounding1
 /-
   max ((λ x. $0) $1) f =>
     let a := max $1 f
@@ -229,176 +228,127 @@ inductive TyArr : List Ty → Type
 
 namespace TyArr
 
+def concat : TyArr a → TyArr b → TyArr (a ++ b)
+  | .nil, a => a
+  | .cons hd tl, v => .cons hd (concat tl v)
+
+instance : HAppend (TyArr a) (TyArr b) (TyArr (a ++ b)) := ⟨TyArr.concat⟩
+theorem cons_append {a : TyArr A} {b : TyArr B} : .cons z (a ++ b) = (TyArr.cons z a) ++ b := rfl
+
+@[simp]
+theorem nil_concat {Γ' : TyArr Γ} : (TyArr.nil ++ Γ') = Γ' := rfl
+
 def get
     {idx : ℕ} (h : Γ[idx]? = some ty) (v : TyArr Γ)
     : ArgCount ty := match Γ, idx with
-  | [], _ => Option.noConfusion (cast (by rw [List.getElem?_nil]) h)
+  | [], _ => Option.noConfusion (List.getElem?_nil.symm.trans h)
   | hd :: tl, 0 =>
-    let h := cast (by rw [List.getElem?_cons_zero, Option.some.injEq]) h
+    let h := (Option.some.injEq _ _).mp $ List.getElem?_cons_zero.symm.trans h
     match v with
     | .cons hd _ => cast (by rw [←h]) hd
   | hd :: tl, n+1 =>
-    let h := cast (by rw [List.getElem?_cons_succ]) h
-    match v with | cons _ tl' => get h tl'
+    match v with
+    | cons _ tl' => get (List.getElem?_cons_succ.symm.trans h) tl'
+
+theorem get_append_assoc
+    {Γ₁' : TyArr Γ₁} {Γ₂' : TyArr Γ₂} {Γ₃' : TyArr Γ₃}
+    {h  : (Γ₁ ++  Γ₂ ++ Γ₃ )[idx]? = some v}
+    (h' : (Γ₁ ++ (Γ₂ ++ Γ₃))[idx]? = some v)
+    : get h (Γ₁' ++  Γ₂' ++ Γ₃') = get h' (Γ₁' ++ (Γ₂' ++ Γ₃')) :=
+  match Γ₁, Γ₁', idx with
+  | [], .nil, _ => rfl
+  | hd :: tl, .cons hd' tl', 0 => by
+    change get h (cons hd' (tl' ++ Γ₂' ++ Γ₃')) = get h' (cons hd' (tl' ++ (Γ₂' ++ Γ₃')))
+    dsimp [get]
+  | hd :: tl, .cons hd' tl', n+1 => by
+    change get h (cons hd' (tl' ++ Γ₂' ++ Γ₃')) = get h' (cons hd' (tl' ++ (Γ₂' ++ Γ₃')))
+    dsimp [get]
+    exact get_append_assoc _
+
+theorem get_append
+    {Γ₁' : TyArr Γ₁} {Γ₂' : TyArr Γ₂}
+    {h  : (Γ₁ ++ Γ₂)[idx]? = some t}
+    (h' :         Γ₁[idx]? = some t)
+    : get h (Γ₁' ++ Γ₂') = get h' Γ₁' :=
+  match Γ₁, Γ₁', idx with
+  | [], _, _ => (Nat.not_succ_le_zero _ (List.getElem?_lt_length h')).elim
+  | hd :: tl, .cons hd' tl', 0 => by
+    change (hd :: (tl ++ Γ₂))[0]? = _ at h
+    change get _ (TyArr.cons hd' (tl' ++ Γ₂')) = _
+    dsimp [get]
+  | hd :: tl, .cons hd' tl', n+1 => by
+    change (hd :: (tl ++ Γ₂))[n + 1]? = _ at h
+    change get _ (TyArr.cons hd' (tl' ++ Γ₂')) = _
+    dsimp [get]
+    exact get_append _
+
+theorem get_idx_eq_jdx
+    {idx jdx : ℕ}
+    {Γ' : TyArr Γ}
+    {h  : Γ[idx]? = some t}
+    (h' : Γ[jdx]? = some t)
+    (heq : idx = jdx)
+    : get h Γ' = get h' Γ' :=
+  match Γ, Γ', idx, jdx with
+  | [], .nil, _, _ => Option.noConfusion (List.getElem?_nil.symm.trans h)
+  | hd :: tl, .cons hd' tl', 0, 0 => rfl
+  | hd :: tl, .cons hd' tl', idx+1, jdx+1 => by
+    dsimp [get]
+    simp only [add_left_inj] at heq
+    exact get_idx_eq_jdx _ heq
+
+set_option pp.proofs true in
+theorem get_append_right
+    {Γ₁' : TyArr Γ₁} {Γ₂' : TyArr Γ₂}
+    {h  : (Γ₁ ++ Γ₂)[idx]? = some t}
+    (hLe : Γ₁.length ≤ idx)
+    (h' :  Γ₂[idx - Γ₁.length]? = some t)
+    : get h (Γ₁' ++ Γ₂') = get h' Γ₂' :=
+  match Γ₁, Γ₁', idx with
+  | [], .nil, idx => by
+    change get _ Γ₂' = _
+    dsimp [List.length_nil, Nat.sub_zero] at h h'
+    rfl
+  | hd :: tl, .cons hd' tl', 0 => by
+    simp only [nonpos_iff_eq_zero, List.length_eq_zero, one_ne_zero] at hLe
+  /- | hd :: tl, .cons hd' tl', [], .nil,  n+1 => by -/
+  /-   simp only [List.length_cons, Nat.reduceSubDiff, List.getElem?_nil] at h' -/
+  | hd :: tl, .cons hd' tl', n+1 => by
+    change (hd :: (tl ++ _))[n + 1]? = _ at h
+    change get _ (TyArr.cons hd' (tl' ++ Γ₂')) = _
+    dsimp [get]
+    simp only [List.length_cons, add_le_add_iff_right] at hLe
+    dsimp at h'
+    have : (n + 1 - (tl.length + 1)) = (n - tl.length) := Nat.add_sub_add_right n 1 tl.length
+    rw [this] at h'
+    rw [get_idx_eq_jdx h' this]
+    exact get_append_right hLe _
 
 end TyArr
-
-namespace ArgCount
-
-def inc (h : ArgCount v) : ArgCount v := match v with
-  | .direct _ => Nat.succ h
-  | .arr _ _ => fun a' => inc (h a')
-
-theorem inferTyTransform
-    (h : infer Γ (.app a b) = some rTy)
-    (ha : infer Γ a = some aTy) (hb : infer Γ b = some bTy)
-    : aTy = .arr bTy rTy := by
-  simp only [infer, ha, hb, Option.bind_eq_bind, Option.some_bind] at h
-  split at h
-  <;> (try split at h)
-  <;> (try contradiction)
-  next h' =>
-  rw [(Option.some.injEq _ _).mp h, h']
-
-/--
-  This is a function that extracts the type that's an argument to the application.
-  This has to be done with a Σ' type over an ∃ because `Prop` can't be elim'd into `Type*`.
-  That being said its output is exacly the same as if it was done with ∃.
--/
-def inferExtract
-    (h : infer Γ (.app a b) = some rTy)
-    : (aTy : Ty) ×' (infer Γ a = (aTy ⇒ rTy) ∧ infer Γ b = aTy) :=
-  match ha : infer Γ a, hb : infer Γ b with
-  | some aTy, some bTy  =>
-    ⟨_, Option.some_inj.mpr $ inferTyTransform h ha hb, rfl⟩
-  | none, _ => by
-    -- contra
-    simp only [infer, ha, Option.bind_eq_bind, Option.none_bind] at h
-  | some (.direct _), none
-  | some (.arr _ _),  none => by
-    simp only [infer, ha, hb, Option.bind_eq_bind, Option.none_bind, Option.some_bind] at h
-
-set_option trace.split.failure true in
-set_option pp.proofs true in
-theorem inferExtract_def
-    (h : infer Γ (.app a b) = some rTy)
-    : ∃ aTy, ∃ p₁, ∃ p₂, inferExtract h = ⟨aTy, p₁, p₂⟩ := by
-  rcases TySpec_app.mp (infer_TySpec.mp h) with ⟨argTy, p₁, p₂⟩
-  have p₁ := infer_TySpec.mpr p₁
-  have p₂ := infer_TySpec.mpr p₂
-  use argTy
-  use p₁
-  use p₂
-  dsimp [inferExtract]
-  split
-  /- · sorry -/
-  /- · sorry -/
-  /- · sorry -/
-  /- · sorry -/
-
-#print inferExtract
 
 -- I finally see why proof-relevance is useful.
 -- Damn that took me a long time to get
 -- This does not work due to how AC is defined on Prop...
 -- And (=) does only produce a Prop
 
-theorem inferFwd : infer Γ (Stx.abs argTy body) = some (.arr argTy' retTy)
-    → infer (argTy :: Γ) body = some retTy ∧ argTy = argTy' := by
-  simp only [infer, Option.map_eq_some', Ty.arr.injEq, exists_eq_right_right, imp_self]
-
-def upperBoundRed
-    {x : Stx} (hTy : infer Γ x = some ty)
-    (v : TyArr Γ)
-    : ArgCount ty := match x, ty with
-  | .bvar idx, _ => TyArr.get hTy v
-  | .abs argTy body, .arr argTy' retTy =>
-    let ⟨a, rfl⟩ := inferFwd hTy
-    fun z => upperBoundRed a (.cons z v)
-  | .abs argTy body, .direct _ => by
-    -- contra
-    simp only [infer, Option.map_eq_some', and_false, exists_false] at hTy
-  | .app a b, _ =>
-    let ⟨_, ha, hb⟩ := inferExtract hTy
-    ArgCount.inc $ (upperBoundRed ha v) (upperBoundRed hb v)
-
-def zero : ArgCount v := match v with
-  | .direct _ => Nat.zero
-  | .arr _ _ => fun _ => ArgCount.zero
-def naturalize (h : ArgCount v) : ℕ := match v with
-  | .direct _ => h
-  | .arr _ _ => naturalize (h ArgCount.zero)
-
-theorem naturalize_zero : naturalize (@zero v) = 0 := match v with
-  | .direct _ => rfl
-  | .arr _ _ => by dsimp [naturalize]; exact naturalize_zero
-
-theorem naturalize_inc
-    (x : ArgCount z)
-    : (naturalize x) + 1 = naturalize (inc x) :=
-  match z with
-  | .direct _ => rfl
-  | .arr _ _ => by simp only [naturalize, naturalize_inc, inc]
-
-/- def lt (a b : ArgCount v) : Prop := match v with -/
-/-   | .direct _ => Nat.lt a b -/
-/-   | .arr arg _ => ∀ z : ArgCount arg, ArgCount.lt (a z) (b z) -/
-
-/- theorem upperBoundRed_lt_inc -/
-/-     {p : infer Γ x = some t} -/
-/-     (h : upperBoundRed p Γ' = v) -/
-/-     : ArgCount.lt v v.inc := match t with -/
-/-     | .direct _ => by -/
-/-       simp only [ArgCount.lt, ArgCount.inc, Nat.succ_eq_add_one, Nat.lt_eq, lt_add_iff_pos_right, -/
-/-         zero_lt_one] -/
-/-     | .arr a b => by -/
-/-       intro z -/
-/-       simp [ArgCount.lt, ArgCount.inc] -/
-/-       sorry -/
-
-end ArgCount
-
-/- open ArgCount in -/
-/- theorem z (h : infer Γ s = some v) : inferExtract p = ⟨_, _, _⟩ := sorry -/
-
-open ArgCount in
-theorem β_naturalize
-    {p₁ : infer Γ (.app (.abs argTy body) arg) = some t₁}
-    {p₂ : infer Γ (body.β arg) = some t₁}
-    (h₁ : upperBoundRed p₁ Γ' = acA)
-    (h₂ : upperBoundRed p₂ Γ' = acB)
-    : naturalize acB < naturalize acA :=
-  match body with
-  | .abs argTy₂ b₂ => by
-    obtain (_|(_|(_|_))) := infer_TySpec.mp p₁
-    next p₁₁ p₁₂ =>
-    cases p₁₂
-    next p₁₂ =>
-    let this := infer_TySpec.mpr p₁₂
-    simp [upperBoundRed] at h₁
-    simp [inferExtract] at h₁
-    sorry
-  | .bvar idx => by
-    sorry
-  | .app a b => sorry
-
-end Bounding1
-
-
-namespace Bounding2
-
 -- C for constructive
 inductive CTySpec : List Ty → Stx → Ty → Type
-  | bvar ty : Γ[idx]? = some ty → CTySpec Γ (.bvar idx) ty
+  | bvar : Γ[idx]? = some ty → CTySpec Γ (.bvar idx) ty
 
-  | app argTy retTy : CTySpec Γ fn (argTy ⇒ retTy) → CTySpec Γ arg argTy
+  | app : CTySpec Γ fn (argTy ⇒ retTy) → CTySpec Γ arg argTy
       → CTySpec Γ (.app fn arg) retTy
-  | abs argTy retTy : CTySpec (argTy :: Γ) body retTy
-      → CTySpec Γ (.abs ty body) (argTy ⇒ retTy)
+  | abs : CTySpec (argTy :: Γ) body retTy
+      → CTySpec Γ (.abs argTy body) (argTy ⇒ retTy)
+
+theorem CTySpec_TySpec (h : CTySpec Γ s ty) : TySpec Γ s ty := by
+  induction h
+  · exact .bvar (by assumption)
+  · exact .app (by assumption) (by assumption)
+  · exact .abs (by assumption)
 
 def build (h : infer Γ s = some ty) : CTySpec Γ s ty :=
   match s with
-  | .bvar idx => .bvar _ (by simpa only)
+  | .bvar idx => .bvar (by simpa only)
   | .abs ty body =>
     match h' : infer (ty :: Γ) body with
     | .none => by
@@ -407,9 +357,272 @@ def build (h : infer Γ s = some ty) : CTySpec Γ s ty :=
     | .some x => by
       simp only [infer, h', Option.map_some', Option.some.injEq] at h
       subst h
-      exact .abs _ _ (build h')
+      exact .abs (build h')
   | .app a b =>
-    have := Bounding1.inferExtract
-    sorry
+    match ha : infer Γ a, hb : infer Γ b with
+    | some aTy, some bTy => by
+      simp only [infer, ha, hb, Option.bind_eq_bind, Option.some_bind] at h
+      split at h
+      <;> (try split at h)
+      <;> (try contradiction)
+      next h' =>
+      have := ((Option.some.injEq _ _).mp h)
+      subst this h'
+      exact .app (build ha) (build hb)
+    | none, _ => by
+      -- contra
+      simp only [infer, ha, Option.bind_eq_bind, Option.none_bind] at h
+    | some (.direct _), none
+    | some (.arr _ _),  none => by
+      simp only [infer, ha, hb, Option.bind_eq_bind, Option.none_bind, Option.some_bind] at h
 
-end Bounding2
+def TySpec_CTySpec (h : TySpec Γ s ty) : CTySpec Γ s ty := build (infer_TySpec.mpr h)
+
+theorem CTySpec_unique (h₁ : CTySpec Γ s o₁) (h₂ : CTySpec Γ s o₂) : o₁ = o₂ :=
+  TySpec_unique (CTySpec_TySpec h₁) (CTySpec_TySpec h₂)
+
+namespace ArgCount
+
+def inc (h : ArgCount v) : ArgCount v := match v with
+  | .direct _ => Nat.succ h
+  | .arr _ _ => fun a' => inc (h a')
+
+def addN (h : ArgCount v) (n : ℕ) : ArgCount v := match v with
+  | .direct _ => Nat.add h n
+  | .arr _ _ => fun a' => addN (h a') n
+
+theorem addN_succ_inc {v : ArgCount t} : addN v (n + 1) = inc (addN v n) :=
+  match t with
+  | .direct _ => rfl
+  | .arr a b => by
+    dsimp [addN, inc]
+    apply funext
+    intro v
+    rw [addN_succ_inc]
+theorem addN_zero {v : ArgCount t} : addN v 0 = v :=
+  match t with
+  | .direct _ => rfl
+  | .arr _ _ => by
+    dsimp [addN, inc]
+    apply funext
+    intro x
+    rw [addN_zero]
+
+def zero : ArgCount v := match v with
+  | .direct _ => Nat.zero
+  | .arr _ _ => fun _ => ArgCount.zero
+def naturalize (h : ArgCount v) : ℕ := match v with
+  | .direct _ => h
+  | .arr _ _ => naturalize (h ArgCount.zero)
+
+def upperBoundRed
+    {x : Stx} (hTy : CTySpec Γ x ty)
+    (v : TyArr Γ) : ArgCount ty :=
+  match x, hTy with
+  | .bvar _, .bvar hTy => TyArr.get hTy v
+  | .abs _ _, .abs hTy => fun z => upperBoundRed hTy $ .cons z v
+  | .app _ _, .app ha hb =>
+    let ha := upperBoundRed ha v
+    let hb := upperBoundRed hb v
+    addN (ha hb) (naturalize hb).succ
+
+@[simp]
+theorem naturalize_zero : naturalize (@zero v) = 0 := match v with
+  | .direct _ => rfl
+  | .arr _ _ => by dsimp [naturalize]; exact naturalize_zero
+
+@[simp]
+theorem naturalize_inc
+    (x : ArgCount z)
+    : (naturalize x) + 1 = naturalize (inc x) :=
+  match z with
+  | .direct _ => rfl
+  | .arr _ _ => by dsimp [naturalize, inc]; rw [naturalize_inc]
+
+@[simp]
+theorem naturalize_addN {a : ArgCount ty} : (addN a n).naturalize = a.naturalize + n :=
+  match ty with
+  | .direct _ => rfl
+  | .arr a b => by
+    dsimp [addN, naturalize]
+    rw [naturalize_addN]
+
+end ArgCount
+
+open ArgCount in
+theorem upperBoundRed_eq_replace.bvarShift
+    {repl : Stx} {t' : Ty}
+    {Γ' : TyArr Γ} {Γ'₂ : TyArr Γ₂}  {Γ'₃ : TyArr Γ₃}
+    (pRepl : CTySpec (Γ₃ ++ Γ) repl t')
+    (hRepl : CTySpec (Γ₃ ++ Γ₂ ++ Γ) (Stx.bvarShift Γ₂.length Γ₃.length repl) t')
+    : upperBoundRed pRepl (Γ'₃ ++ Γ') = upperBoundRed hRepl (Γ'₃ ++ Γ'₂ ++ Γ') :=
+  match repl with
+  | .bvar idx => by
+    dsimp [Stx.bvarShift] at hRepl
+    cases pRepl; cases hRepl; next pRepl hRepl =>
+    dsimp [upperBoundRed]
+    split at hRepl
+    <;> rename_i hRepl' h
+    · have : (if idx < Γ₃.length then idx else idx + Γ₂.length) = idx := by simp only [h, ↓reduceIte]
+      rw [TyArr.get_idx_eq_jdx hRepl this]
+      clear *-h
+      rw [List.append_assoc _ _ _] at hRepl
+      rw [TyArr.get_append_assoc hRepl]
+      rw [List.getElem?_append h] at pRepl hRepl
+      rw [TyArr.get_append hRepl, TyArr.get_append hRepl]
+    · have : (if idx < Γ₃.length then idx else idx + Γ₂.length) = idx + Γ₂.length := by simp only [h, ↓reduceIte]
+      rw [TyArr.get_idx_eq_jdx hRepl this]
+      clear *-h
+      rw [not_lt] at h
+
+      rw [List.append_assoc _ _ _] at hRepl
+      rw [TyArr.get_append_assoc hRepl]
+      rw [List.getElem?_append_right h] at pRepl
+      have := h.trans (Nat.le_add_right idx Γ₂.length)
+      rw [List.getElem?_append_right this] at hRepl
+      rw [TyArr.get_append_right this hRepl, TyArr.get_append_right h pRepl]
+      clear *-h
+      have : idx + Γ₂.length - Γ₃.length = idx - Γ₃.length + Γ₂.length := Nat.sub_add_comm h
+      rw [this] at hRepl
+      rw [TyArr.get_idx_eq_jdx hRepl this]
+      rw [List.getElem?_append_right (Nat.le_add_left Γ₂.length (idx - Γ₃.length))] at hRepl
+      rw [TyArr.get_append_right (Nat.le_add_left Γ₂.length (idx - Γ₃.length)) hRepl]
+      have : idx - Γ₃.length + Γ₂.length - Γ₂.length = idx - Γ₃.length := Nat.add_sub_self_right (idx - Γ₃.length) Γ₂.length
+      rw [this] at hRepl
+      rw [TyArr.get_idx_eq_jdx hRepl this]
+  | .abs ty body => by
+    dsimp [Stx.bvarShift] at hRepl
+    cases pRepl; cases hRepl; next pArg hBody =>
+    dsimp [upperBoundRed]
+    funext z
+    change CTySpec ((ty :: Γ₃) ++ Γ) _ _ at pArg
+    change CTySpec ((ty :: Γ₃) ++ Γ₂ ++ Γ) _ _ at hBody
+    change upperBoundRed _ ((TyArr.cons z Γ'₃) ++ Γ')
+      = upperBoundRed _ ((TyArr.cons z Γ'₃) ++ Γ'₂ ++ Γ')
+    exact upperBoundRed_eq_replace.bvarShift pArg hBody
+  | .app a b => by
+    dsimp [Stx.bvarShift] at hRepl
+    cases pRepl; cases hRepl; next hap hbp _ har hbr =>
+    obtain rfl := TySpec_unique (bvarShift_maintain_gen (CTySpec_TySpec hap)) (CTySpec_TySpec har)
+    dsimp [upperBoundRed]
+    rw [upperBoundRed_eq_replace.bvarShift hap har, upperBoundRed_eq_replace.bvarShift hbp hbr]
+
+open ArgCount in
+theorem upperBoundRed_eq_replace.bvar {Γ₂ Γ : List Ty} {repl : Stx} {t' : Ty} {Γ' : TyArr Γ} {replSz : ArgCount t'} {t : Ty}
+    {Γ'₂ : TyArr Γ₂} (pRepl : CTySpec Γ repl t') (z : upperBoundRed pRepl Γ' = replSz) (idx : ℕ)
+    (h : CTySpec (Γ₂ ++ t' :: Γ) (Stx.bvar idx) t)
+    (hRepl :
+      CTySpec (Γ₂ ++ Γ)
+        (match compare idx Γ₂.length with
+        | Ordering.lt => Stx.bvar idx
+        | Ordering.eq => Stx.bvarShift Γ₂.length 0 repl
+        | Ordering.gt => Stx.bvar (idx - 1))
+        t) :
+    upperBoundRed h (Γ'₂ ++ TyArr.cons replSz Γ') = upperBoundRed hRepl (Γ'₂ ++ Γ') := by
+  split at hRepl
+  <;> dsimp only at hRepl
+  <;> rename_i hOrd
+  <;> simp only [Nat.compare_eq_eq, Nat.compare_eq_lt, Nat.compare_eq_gt] at hOrd
+  case h_1 => 
+    cases h; cases hRepl; next h hRepl =>
+    dsimp [upperBoundRed]
+    have : Γ₂[idx]? = some t := by rw [←hRepl, List.getElem?_append hOrd]
+    rw [TyArr.get_append this, TyArr.get_append this]
+  case h_3 =>
+    cases h; cases hRepl; next h hRepl =>
+    dsimp [upperBoundRed]
+    have : Γ₂.length ≤ idx := Nat.le_of_succ_le hOrd
+    rw [List.getElem?_append_right this] at h
+    rw [TyArr.get_append_right this h]
+    have : Γ₂.length ≤ idx - 1 := Nat.le_sub_one_of_lt hOrd
+    rw [List.getElem?_append_right this] at hRepl
+    rw [TyArr.get_append_right this hRepl]
+    change ([t'] ++ Γ)[_]? = _ at h
+    change TyArr.get h ((TyArr.cons replSz .nil) ++ Γ') = _
+    clear *-hOrd z
+    have : [t'].length ≤ idx - Γ₂.length := Nat.le_sub_of_add_le' hOrd
+    rw [List.getElem?_append_right this] at h
+    rw [TyArr.get_append_right this h]
+    have : idx - Γ₂.length - [t'].length = idx - 1 - Γ₂.length := by
+      dsimp
+      rw [Nat.sub_right_comm]
+    rw [this] at h
+    rw [TyArr.get_idx_eq_jdx h this]
+  · cases h; next h =>
+    subst hOrd
+    dsimp [upperBoundRed]
+    rw [List.getElem?_append_right (le_refl _)] at h
+    rw [TyArr.get_append_right (le_refl _) h]
+    have : Γ₂.length - Γ₂.length = 0 := Nat.sub_self Γ₂.length
+    rw [this] at h
+    rw [TyArr.get_idx_eq_jdx h this]
+    simp only [List.getElem?_cons_zero, Option.some_inj] at h
+    subst h
+    simp only [TyArr.get, cast_eq]
+    rw [←z]
+    clear *-
+    change CTySpec ([] ++ Γ) _ _ at pRepl
+    change CTySpec ([] ++ Γ₂ ++ Γ) (Stx.bvarShift _ ([] : List Ty).length _) _ at hRepl
+    change upperBoundRed _ (TyArr.nil ++ Γ') = upperBoundRed _ (TyArr.nil ++ Γ'₂ ++ Γ')
+    exact upperBoundRed_eq_replace.bvarShift pRepl hRepl
+
+open ArgCount in
+theorem upperBoundRed_eq_replace
+    {Γ'₂ : TyArr Γ₂}
+    (pRepl : CTySpec Γ repl t')
+    (z : upperBoundRed pRepl Γ' = replSz)
+    (h : CTySpec (Γ₂ ++ (t' :: Γ)) s t)
+    (hRepl : CTySpec (Γ₂ ++ Γ) (Stx.replace (Γ₂.length) s repl) t)
+    : upperBoundRed h (Γ'₂ ++ (TyArr.cons replSz Γ')) = upperBoundRed hRepl (Γ'₂ ++ Γ') :=
+  match s with
+  -- For some reason I need to extract this into its own function.
+  -- Unknown why
+  | .bvar idx => upperBoundRed_eq_replace.bvar pRepl z idx h hRepl
+  | .abs ty body => by
+    dsimp [Stx.replace] at hRepl
+    cases h; cases hRepl; next h hRepl =>
+    dsimp [upperBoundRed]
+    apply funext
+    intro x
+    rw [TyArr.cons_append]
+    dsimp [←List.cons_append] at h hRepl
+    exact upperBoundRed_eq_replace pRepl z h hRepl
+  | .app a b => by
+    cases h; cases hRepl; next hb ha _ hbRepl haRepl =>
+    simp only [upperBoundRed]
+    obtain rfl := ((Ty.arr.injEq _ _ _ _).mp
+      $ TySpec_unique
+      (CTySpec_TySpec haRepl)
+      (TySpec_replace_gen (x := t') (CTySpec_TySpec pRepl) (CTySpec_TySpec ha))).1
+    rw [upperBoundRed_eq_replace pRepl z ha haRepl,
+        upperBoundRed_eq_replace pRepl z hb hbRepl]
+
+/-- info: 'STLC.upperBoundRed_eq_replace' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms upperBoundRed_eq_replace
+
+open ArgCount in
+theorem β_naturalize
+    {p₁ : CTySpec Γ (.app (.abs argTy body) arg) t₁}
+    {p₂ : CTySpec Γ (body.β arg) t₁}
+    (h₁ : upperBoundRed p₁ Γ' = acA)
+    (h₂ : upperBoundRed p₂ Γ' = acB)
+    : naturalize acB < naturalize acA := by
+  dsimp [Stx.β] at p₂
+  cases p₁; next pRepl hBody =>
+  cases hBody; next hBody =>
+  cases h₁
+  dsimp [upperBoundRed]
+  change CTySpec ([] ++ Γ) _ _ at pRepl
+  change CTySpec ([] ++ (_ :: Γ)) _ _ at hBody
+  obtain ⟨replSz, z⟩ : ∃ replSz, upperBoundRed pRepl Γ' = replSz := exists_eq'
+  have x := upperBoundRed_eq_replace (Γ₂ := []) (Γ'₂ := .nil) pRepl z hBody p₂
+  change upperBoundRed _ (TyArr.cons _ _) = _ at x
+  rw [z, x, ←h₂, naturalize_addN, Nat.add_comm (m := 1), ←Nat.add_assoc]
+  change _ < (upperBoundRed _ Γ').naturalize + 1 + _
+  calc
+    _ < _ + 1 := Nat.lt_succ_self _
+    _ ≤ _ := Nat.le_add_right ((upperBoundRed p₂ Γ').naturalize + 1) replSz.naturalize
+
+/-- info: 'STLC.β_naturalize' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms β_naturalize
+

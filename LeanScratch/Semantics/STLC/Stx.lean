@@ -123,6 +123,25 @@ def replace (idx_shift : ℕ) (body replace : Stx) : Stx := match body with
   | .app fn arg => .app (fn.replace idx_shift replace) (arg.replace idx_shift replace)
   | .abs ty v => .abs ty (v.replace idx_shift.succ replace)
 
+/- theorem replace_not_RefSet (h : ∀ idx, RefSet s idx → idx < jdx) : s.replace jdx repl = s := -/
+/-   match s with -/
+/-   | .bvar jdx => by -/
+/-     simp at h -/
+/-     dsimp [replace] -/
+/-     sorry -/
+/-     /- split -/ -/
+/-     /- · sorry -/ -/
+/-     /- · sorry -/ -/
+/-     /- · simp_all -/ -/
+/-     /-   sorry -/ -/
+/-   | .app a b  => by -/
+/-     simp only [RefSet_app, not_or] at h -/
+/-     rcases h with ⟨ha, hb⟩ -/
+/-     simp only [replace, replace_not_RefSet ha, replace_not_RefSet hb] -/
+/-   | .abs ty b => by -/
+/-     simp only [RefSet_abs] at h -/
+/-     simp only [replace, replace_not_RefSet h] -/
+
 def β (body repl : Stx) : Stx := (body.replace 0 repl)
 
 theorem bvarShift_RefSet_general (h : RefSet body (idx + skip)) : RefSet (body.bvarShift shift skip) (idx + shift + skip) :=

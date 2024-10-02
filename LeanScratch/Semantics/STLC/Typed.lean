@@ -1,5 +1,6 @@
 import LeanScratch.Semantics.STLC.Stx
 import LeanScratch.Semantics.STLC.Red
+import LeanScratch.ListUtils
 import Mathlib.Data.Rel
 import LeanScratch.Relation
 
@@ -48,7 +49,7 @@ theorem TySpec_abs' : TySpec Γ (.abs argTy body) z ↔ ∃ retTy, (z = (argTy �
   · rintro ⟨retTy, rfl, h⟩
     exact .abs h
 
-theorem TyUnique (a : TySpec Γ i o₁) (b : TySpec Γ i o₂) : o₁ = o₂ :=
+theorem TySpec_unique (a : TySpec Γ i o₁) (b : TySpec Γ i o₂) : o₁ = o₂ :=
   match i with
   | .bvar id => by
     cases a
@@ -59,12 +60,12 @@ theorem TyUnique (a : TySpec Γ i o₁) (b : TySpec Γ i o₂) : o₁ = o₂ :=
     cases a
     cases b
     next a argTy₁ fnTy₁ b argTy₂ fnTy₂ =>
-    exact ((Ty.arr.injEq _ _ _ _).mp $ TyUnique fnTy₁ fnTy₂).2
+    exact ((Ty.arr.injEq _ _ _ _).mp $ TySpec_unique fnTy₁ fnTy₂).2
   | .abs ty body => by
     cases a
     cases b
     next a ty₁ b ty₂ =>
-    exact (Ty.arr.injEq _ _ _ _).mpr ⟨rfl, TyUnique ty₁ ty₂⟩
+    exact (Ty.arr.injEq _ _ _ _).mpr ⟨rfl, TySpec_unique ty₁ ty₂⟩
 
 
 theorem bvarShift_maintain_gen
@@ -260,12 +261,34 @@ theorem Safety (spec : TySpec Γ e ty) (h : RedStar e e₁) : (Terminal e₁ ∨
   case tail b c cont hRed ih =>
     have tyB := LongTypePreservation spec cont
     cases' ih with h h
-    · exfalso
-      exact (Terminal_iff_non_Red tyB).mpr h _ hRed
+    · exact ((Terminal_iff_non_Red tyB).mpr h _ hRed).elim
     · exact Progress $ TypePreservation hRed tyB
 
 /-- info: 'STLC.Safety' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Safety
 
-/- #check Exists -/
+theorem replace_gt_Γ (h : TySpec Γ s t) (hLe : Γ.length ≤ idx) : s.replace idx repl = s :=
+  match s with
+  | .bvar jdx => by
+    cases h; next h =>
+    have hLt := List.getElem?_lt_length h
+    dsimp [replace, replace.bvar]
+    split
+    <;> rename_i h
+    <;> simp only [Nat.compare_eq_eq, Nat.compare_eq_lt, Nat.compare_eq_gt] at h
+    · rfl
+    · subst h
+      exact ((lt_self_iff_false _).mp (hLt.trans_le hLe)).elim
+    · exact ((lt_self_iff_false _).mp ((hLt.trans_le hLe).trans h)).elim
+  | .app a b => by
+    cases h; next argTy ha hb =>
+    simp only [replace, replace_gt_Γ ha hLe, replace_gt_Γ hb hLe]
+  | .abs ty body => by
+    cases h; next retTy h =>
+    simp only [replace, Nat.succ_eq_add_one, abs.injEq, true_and]
+    apply replace_gt_Γ h
+    simpa only [List.length_cons, add_le_add_iff_right]
+
+/-- info: 'STLC.replace_gt_Γ' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms replace_gt_Γ 
 
