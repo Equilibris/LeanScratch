@@ -2,35 +2,39 @@ import LeanScratch.Semantics.STLC.Stx
 
 namespace STLC
 
+-- TODO: look into Coc to try to understand how this nonsense works
 -- It would be really neat if I could use a type function as a argument type in a mutual manor here
+
+def Arity : Ty → ℕ
+  | .direct _ => 0
+  | .arr _ b => (Arity b) + 1
 
 def ArgCount : Ty → Type
   | .arr a b  => ArgCount a → ArgCount b
   | .direct _ => ℕ
 
-def ArgCount.lt (a b : ArgCount z) : Prop := match z with
+namespace ArgCount
+
+mutual
+def lt (a b : ArgCount z) : Prop := match z with
   | .direct _ => Nat.lt a b
-  | .arr _ _ => ∀ x, lt (a x) (b x)
+  | .arr _ _ => ∀ x, Monotonic x → lt (a x) (b x)
 
 -- Not really a LE as it doest satisfy le ↔ lt ∧ neq
-def ArgCount.le (a b : ArgCount z) : Prop := match z with
+def le (a b : ArgCount z) : Prop := match z with
   | .direct _ => Nat.le a b
-  | .arr _ _ => ∀ x, le (a x) (b x)
+  | .arr _ _ => ∀ x, Monotonic x → le (a x) (b x)
 
-instance : LT (ArgCount z) := ⟨ArgCount.lt⟩
-instance : LE (ArgCount z) := ⟨ArgCount.le⟩
-
-def ArgCount.Monotonic (v : ArgCount s) : Prop := match s with
+def Monotonic (v : ArgCount s) : Prop := match s with
   | .direct _ => True
   | .arr argTy _ =>
-    (∀ a b : ArgCount argTy, a < b → (v a ≤ v b) ) ∧
-      (∀ x : ArgCount argTy, Monotonic (v x))
+    -- Might need to add the restrictions Monotonic a and Monotonic b
+    (∀ a b : ArgCount argTy, lt a b → le (v a) (v b) ) ∧
+      (∀ x : ArgCount argTy, /- Monotonic x → -/ Monotonic (v x))
+end
 
-structure AC (t : Ty) : Type where
-  data  : ArgCount t
-  proof : ArgCount.Monotonic data
-
-namespace ArgCount
+instance : LT (ArgCount z) := ⟨lt⟩
+instance : LE (ArgCount z) := ⟨le⟩
 
 def inc (h : ArgCount v) : ArgCount v := match v with
   | .direct _ => Nat.succ h
@@ -89,16 +93,70 @@ theorem naturalize_addN {a : ArgCount ty} : (addN a n).naturalize = a.naturalize
     dsimp [addN, naturalize]
     exact naturalize_addN
 
+theorem lt_trans {a b c : ArgCount t} (hab : a < b) (hbc : b < c) : a < c :=
+  match t with
+  | .direct _ => by
+    change lt _ _ at hab hbc ⊢
+    simp only [lt] at hab hbc ⊢
+    exact Nat.lt_trans hab hbc
+  | .arr _ _ => by
+    change lt _ _ at hab hbc ⊢
+    simp only [lt] at hab hbc ⊢
+    intro x xm
+    specialize hab x xm
+    specialize hbc x xm
+    exact lt_trans hab hbc
+
+theorem le_trans {a b c : ArgCount t} (hab : a ≤ b) (hbc : b ≤ c) : a ≤ c :=
+  match t with
+  | .direct _ => by
+    change le _ _ at hab hbc ⊢
+    simp only [le] at hab hbc ⊢
+    exact Nat.le_trans hab hbc
+  | .arr _ _ => by
+    change le _ _ at hab hbc ⊢
+    simp only [le] at hab hbc ⊢
+    intro x xm
+    specialize hab x xm
+    specialize hbc x xm
+    exact le_trans hab hbc
+
 theorem le_of_lt {a b : ArgCount z} : a < b → a ≤ b :=
   match z with
-  | .direct _ => fun h => Nat.le_of_succ_le h
-  | .arr _ _ => fun h x => le_of_lt (h x)
+  | .direct _ => fun h => by
+    change lt _ _ at h
+    change le _ _
+    simp only [lt, Nat.lt_eq, le, Nat.le_eq] at h ⊢
+    exact Nat.le_of_succ_le h
+  | .arr _ _ => by
+    change lt _ _ → le _ _
+    simp only [lt, le]
+    exact fun h x m => le_of_lt (h x m)
 
 theorem self_le_self {a : ArgCount z} : a ≤ a :=
   match z with
-  | .direct _ => Nat.le.refl
-  | .arr _ _ => fun _ => self_le_self
+  | .direct _ => by
+    change le _ _
+    simp only [le, Nat.le_eq, le_refl]
+  | .arr _ _ => by
+    change le _ _
+    simp only [le]
+    intro x _
+    exact self_le_self
 
+theorem zero_Monotonic : Monotonic (@zero s) := match s with
+  | .direct _ => by simp only [Monotonic]
+  | .arr _ _ => by
+    simp only [Monotonic, zero]
+    exact ⟨fun _ _ _ => self_le_self, fun _ => zero_Monotonic⟩
+
+theorem le_congr
+    {aF bF : ArgCount (.arr f r)}
+    {aR bR : ArgCount f}
+    (hFLe : aF ≤ bF)
+    (hRLe : aR ≤ bR)
+    : aF aR ≤ bF bR :=
+  sorry
 
 /- def strongNeq (a b : ArgCount z) : Prop := match z with -/
 /-   | .direct _ => a ≠ b -/
@@ -144,26 +202,51 @@ theorem self_le_self {a : ArgCount z} : a ≤ a :=
 
 theorem lt_naturalize {a b : ArgCount v} (h : a < b) : naturalize a < naturalize b :=
   match v with
-  | .direct _ => h
+  | .direct _ => by
+    change lt _ _ at h
+    simp only [lt, naturalize] at h ⊢
+    exact h
+    /- h -/
   | .arr _ _ => by
-    dsimp [naturalize]
-    exact lt_naturalize $ h zero
+    change lt _ _ at h
+    simp only [ArgCount, lt, naturalize] at a b h ⊢
+    exact lt_naturalize $ h zero zero_Monotonic
 
 @[simp]
 theorem self_lt_addN {a : ArgCount t} (h : 0 < n) : a < addN a n :=
   match t with
-  | .direct _ => Nat.lt_add_of_pos_right h
-  | .arr _ _ => fun _ => self_lt_addN h
+  | .direct _ => by
+    change lt _ _
+    simp only [ArgCount, addN, lt] at a ⊢
+    exact Nat.lt_add_of_pos_right h
+  | .arr _ _ => by
+    change lt _ _
+    simp only [ArgCount, addN, lt] at a ⊢
+    exact fun _ _ => self_lt_addN h
 
 @[simp]
 theorem addN_lt_addN_right {a b : ArgCount t} (h : a < b) : addN a n < addN b n := match t with
-  | .direct _ => Nat.add_lt_add_right h _
-  | .arr _ _ => fun z => addN_lt_addN_right (h z)
+  | .direct _ => by
+    change lt _ _ at h
+    change lt _ _
+    simp only [ArgCount, addN, lt] at a b h ⊢
+    exact Nat.add_lt_add_right h _
+  | .arr _ _ => by
+    change lt _ _ at h
+    change lt _ _
+    simp only [ArgCount, addN, lt] at a b h ⊢
+    exact fun z mz => addN_lt_addN_right (h z mz)
 
 @[simp]
 theorem addN_lt_addN_left {n : ArgCount t} (h : a < b) : addN n a < addN n b := match t with
-  | .direct _ => Nat.add_lt_add_left h n
-  | .arr _ _ => fun _ => addN_lt_addN_left h
+  | .direct _ => by 
+    change lt _ _
+    simp only [ArgCount, addN, lt] at a b h ⊢
+    exact Nat.add_lt_add_left h n
+  | .arr _ _ => by
+    change lt _ _
+    simp only [ArgCount, addN, lt] at a b h ⊢
+    exact fun _ _ => addN_lt_addN_left h
 
 /- @[simp] -/
 /- theorem addN_le_addN_right {a b : ArgCount t} (h : (a < b) ∨ a = b) : (addN a n < addN b n) ∨ addN a n = addN b n := match h with -/
@@ -179,30 +262,50 @@ theorem addN_lt_addN_left {n : ArgCount t} (h : a < b) : addN n a < addN n b := 
 @[simp]
 theorem addN_le_addN_right {a b : ArgCount t} (h : (a ≤ b)) : (addN a n ≤ addN b n) := 
   match t with
-  | .direct _ => Nat.add_le_add_right h n
-  | .arr _ _ => fun x => addN_le_addN_right (h x)
+  | .direct _ => by
+    change le _ _ at h
+    change le _ _
+    simp only [addN, lt, le] at a b h ⊢
+    exact Nat.add_le_add_right h n
+  | .arr _ _ => by
+    change le _ _ at h
+    change le _ _
+    simp only [addN, lt, le] at a b h ⊢
+    exact fun x xm => addN_le_addN_right (h x xm)
 
 @[simp]
 theorem addN_le_addN_left {n : ArgCount t} (h : (a ≤ b)) : addN n a ≤ addN n b :=
   match t with
-  | .direct _ => Nat.add_le_add_left h n
-  | .arr _ _ => fun _ => addN_le_addN_left h
+  | .direct _ => by
+    change le _ _
+    simp only [addN, lt, le] at a b h ⊢
+    exact Nat.add_le_add_left h n
+  | .arr _ _ => by
+    change le _ _
+    simp only [addN, lt, le] at a b h ⊢
+    exact fun _ _ => addN_le_addN_left h
 
 -- I wish this could be an inductive but its too complex
 def addN_Monotonic {v : ArgCount s} (h : Monotonic v)
     : Monotonic (addN v n) := match s with
-  | .direct _ => True.intro
-  | .arr _ _ => 
-    ⟨fun a b hLt => addN_le_addN_right (h.1 a b hLt), (addN_Monotonic $ h.right ·)⟩
-
-theorem zero_Monotonic : Monotonic (@zero s) := match s with
-  | .direct _ => True.intro
-  | .arr _ _ => ⟨fun _ _ _ => self_le_self, fun _ => zero_Monotonic⟩
+  | .direct _ => by
+    simp only [addN, Monotonic] at h v ⊢
+  | .arr _ _ => by
+    simp only [addN, Monotonic] at h v ⊢
+    exact ⟨fun a b hLt => addN_le_addN_right (h.1 a b hLt), (addN_Monotonic $ h.right ·)⟩
 
 theorem le_addN_lt_lt {a b : ArgCount t} (hLe : a ≤ b) (hLt : n < m) : a.addN n < b.addN m :=
   match t with
-  | .direct _ => (Nat.add_le_add_right hLe n).trans_lt (Nat.add_lt_add_left hLt b)
-  | .arr _ _ => fun x => le_addN_lt_lt (hLe x) hLt
+  | .direct _ => by
+    change le _ _ at hLe
+    change lt _ _
+    simp only [addN, lt, le] at hLe ⊢
+    exact (Nat.add_le_add_right hLe n).trans_lt (Nat.add_lt_add_left hLt b)
+  | .arr _ _ => by
+    change le _ _ at hLe
+    change lt _ _
+    simp only [addN, lt, le] at hLe ⊢
+    exact fun x xm => le_addN_lt_lt (hLe x xm) hLt
 
 end ArgCount
 
