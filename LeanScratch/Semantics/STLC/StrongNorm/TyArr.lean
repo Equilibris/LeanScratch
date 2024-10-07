@@ -123,3 +123,8 @@ theorem Every_get
     exact hhd
   | h :: t, .cons _ tl, n+1, .cons _ htl => Every_get htl
 
+theorem Every_concat (h1 : Every p a) (h2 : Every p b) : Every p (a ++ b) :=
+  match h1 with
+  | .nil => h2
+  | .cons h t => .cons h (Every_concat t h2)
+

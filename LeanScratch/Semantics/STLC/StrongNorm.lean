@@ -83,9 +83,14 @@ theorem β_lt
 
 open ArgCount in
 mutual
-theorem upperBoundRed_le_from_lt
-  {a b : ArgCount ty}
-  {Γ₂' : TyArr Γ₂} (h : a < b)
+theorem upperBoundRed_le_from_le
+  {a b : ArgCount ty} {Γ' : TyArr Γ}
+  {Γ₂' : TyArr Γ₂}
+  (h : a ≤ b)
+  (hΓ' : TyArr.Every Monotonic Γ')
+  (aMono : Monotonic a)
+  (bMono : Monotonic b)
+  (hΓ₂' : TyArr.Every Monotonic Γ₂')
   (hTy : CTySpec (Γ₂ ++ (ty :: Γ)) body retTy)
   : (upperBoundRed hTy (Γ₂' ++ TyArr.cons a Γ')
     ≤ upperBoundRed hTy (Γ₂' ++ TyArr.cons b Γ'))
@@ -101,33 +106,47 @@ theorem upperBoundRed_le_from_lt
     · rw [not_lt] at hLtIdx
       rw [List.getElem?_append_right hLtIdx] at hTy
       rw [TyArr.get_append_right hLtIdx hTy, TyArr.get_append_right hLtIdx hTy]
-      generalize hEq : idx - Γ₂.length = idx at hTy
+      generalize idx - Γ₂.length = idx at hTy
       clear *-h
       cases idx
-      · simp only [List.getElem?_cons_zero] at hTy
+      · simp only [List.getElem?_cons_zero, Option.some.injEq] at hTy
         subst hTy
-        simp [TyArr.get]
-        sorry
-      · sorry
+        simp only [TyArr.get, cast_eq]
+        exact h
+      · exact self_le_self
   | .abs _ _ => by
     cases hTy; next ty body retTy hTy =>
     change CTySpec ((ty :: Γ₂) ++ _ :: _) _ _ at hTy
-    /- change ArgCount.le _ _ -/
-    /- have := upperBoundRed_le_from_lt (Γ₂ := ty :: Γ₂) h hTy -/
-    /- change ArgCount.lt _ _ ∨ _ -/
     change le _ _
     simp only [le]
-    intro x xmono
+    intro x xm
     dsimp [upperBoundRed]
     change (upperBoundRed hTy (TyArr.cons x Γ₂' ++ TyArr.cons a Γ'))
         ≤ (upperBoundRed hTy (TyArr.cons x Γ₂' ++ TyArr.cons b Γ'))
-    exact upperBoundRed_le_from_lt h hTy
+    exact upperBoundRed_le_from_le h hΓ' aMono bMono (.cons xm hΓ₂') hTy
   | .app _ _ => by
     cases hTy; next harg hfn =>
     dsimp [upperBoundRed]
     change le _ _
-    simp only [le, addN]
-    sorry
+    have hArg : (upperBoundRed harg (Γ₂' ++ TyArr.cons a Γ')) ≤ (upperBoundRed harg (Γ₂' ++ TyArr.cons b Γ')) :=
+      upperBoundRed_le_from_le h hΓ' aMono bMono hΓ₂' _
+    have hFn  : (upperBoundRed hfn (Γ₂' ++ TyArr.cons a Γ')) ≤ (upperBoundRed hfn (Γ₂' ++ TyArr.cons b Γ')) :=
+      upperBoundRed_le_from_le h hΓ' aMono bMono hΓ₂' _
+    have fnAMono : (upperBoundRed hfn (Γ₂' ++ TyArr.cons a Γ')).Monotonic :=
+      upperBoundRed_Monotonic (TyArr.Every_concat hΓ₂' (.cons aMono hΓ'))
+    have argAMono : (upperBoundRed harg (Γ₂' ++ TyArr.cons a Γ')).Monotonic :=
+      upperBoundRed_Monotonic (TyArr.Every_concat hΓ₂' (.cons aMono hΓ'))
+    have argBMono : (upperBoundRed harg (Γ₂' ++ TyArr.cons b Γ')).Monotonic :=
+      upperBoundRed_Monotonic (TyArr.Every_concat hΓ₂' (.cons bMono hΓ'))
+
+    generalize /- hFnA :  -/ upperBoundRed hfn (Γ₂' ++ TyArr.cons a Γ') = fnA at *
+    generalize /- hFnB :  -/ upperBoundRed hfn (Γ₂' ++ TyArr.cons b Γ') = fnB at *
+    generalize /- hArgA : -/ upperBoundRed harg (Γ₂' ++ TyArr.cons a Γ') = argA at *
+    generalize /- hArgB : -/ upperBoundRed harg (Γ₂' ++ TyArr.cons b Γ') = argB at *
+
+    exact le_trans
+      (addN_le_addN_right (le_congr fnAMono argAMono argBMono hFn hArg))
+      (addN_le_addN_left (Nat.succ_le_succ (le_naturalize hArg)))
 
 theorem upperBoundRed_Monotonic
     {Γ' : TyArr Γ} {hTy : CTySpec Γ body ty}
@@ -139,21 +158,19 @@ theorem upperBoundRed_Monotonic
     simp only [Monotonic]
     constructor
     · dsimp [upperBoundRed]
-      intro a b h
+      intro a b aMono bMono h
       change upperBoundRed _ (TyArr.nil ++ (TyArr.cons _ _)) ≤ upperBoundRed _ (TyArr.nil ++ (TyArr.cons _ _))
       change CTySpec ([] ++ _ :: _) _ _ at hTy
-      exact upperBoundRed_le_from_lt h hTy
-    · intro x
-      dsimp [upperBoundRed]
-      sorry
+      exact upperBoundRed_le_from_le h hPrevHolds aMono bMono .nil hTy
+    · intro x xm
+      exact upperBoundRed_Monotonic (.cons xm hPrevHolds)
   | .app _ _, .app ha hb => by
-    sorry
-    /- dsimp [upperBoundRed, Monotonic] -/
-    /- stop -/
-    /- constructor -/
-    /- · sorry -/
-    /- · sorry -/
-    /- sorry -/
+    dsimp [upperBoundRed, Monotonic, addN]
+    apply addN_Monotonic
+    have x : Monotonic (upperBoundRed ha _) := upperBoundRed_Monotonic hPrevHolds
+    simp only [Monotonic] at x
+    rcases x with ⟨_, haMR⟩
+    exact haMR (upperBoundRed hb Γ') (upperBoundRed_Monotonic hPrevHolds)
 end
 
 open ArgCount in
@@ -179,54 +196,57 @@ theorem β_naturalize
 /-- info: 'STLC.β_naturalize' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms β_naturalize
 
-theorem Red_decn
-    (h : Red a b)
-    (hTyA : CTySpec Γ a ty) (hTyB : CTySpec Γ b ty)
-    : (upperBoundRed hTyB Γ').naturalize < (upperBoundRed hTyA Γ').naturalize := by
-  induction h generalizing ty Γ Γ'
-  case appl ih =>
-    cases hTyA; cases hTyB; next hap hbp _ har hbr =>
-    obtain rfl := CTySpec_unique hap har
-    obtain rfl := CTySpec_singleton hap har
-    simp only [upperBoundRed, Nat.succ_eq_add_one]
-    have := ih (Γ' := Γ') hbp hbr
-    simp [ArgCount.naturalize_addN]
-    sorry
-    /- exact addN_lt_addN_right $ ih hbp hbr $ upperBoundRed hap Γ' -/
-  case appr ih =>
-    cases hTyA; cases hTyB; next hap hbp _ har hbr =>
-    obtain ⟨rfl, _⟩ := (Ty.arr.injEq _ _ _ _).mp $ CTySpec_unique hbp hbr
-    obtain rfl := CTySpec_singleton hbp hbr
-    simp only [upperBoundRed, Nat.succ_eq_add_one]
-    have := ih (Γ' := Γ') hap har
-    simp [ArgCount.naturalize_addN]
-    /- apply addN_lt_addN_left -/
-    sorry
-    /- exact addN_congr_lt_addN this -/
-  case congr aBody bBody ty' subR ih =>
-    cases hTyA; cases hTyB; next ha hb =>
-    sorry
-    /- intro z -/
-    /- exact ih ha hb -/
-  case beta => exact β_naturalize
+/- theorem Red_decn -/
+/-     (h : Red a b) -/
+/-     (hTyA : CTySpec Γ a ty) (hTyB : CTySpec Γ b ty) -/
+/-     : (upperBoundRed hTyB Γ').naturalize < (upperBoundRed hTyA Γ').naturalize := by -/
+/-   induction h generalizing ty Γ Γ' -/
+/-   case appl ih => -/
+/-     cases hTyA; cases hTyB; next hap hbp _ har hbr => -/
+/-     obtain rfl := CTySpec_unique hap har -/
+/-     obtain rfl := CTySpec_singleton hap har -/
+/-     simp only [upperBoundRed, Nat.succ_eq_add_one] -/
+/-     have := ih (Γ' := Γ') hbp hbr -/
+/-     simp [ArgCount.naturalize_addN] -/
+/-     sorry -/
+/-     /- exact addN_lt_addN_right $ ih hbp hbr $ upperBoundRed hap Γ' -/ -/
+/-   case appr ih => -/
+/-     cases hTyA; cases hTyB; next hap hbp _ har hbr => -/
+/-     obtain ⟨rfl, _⟩ := (Ty.arr.injEq _ _ _ _).mp $ CTySpec_unique hbp hbr -/
+/-     obtain rfl := CTySpec_singleton hbp hbr -/
+/-     simp only [upperBoundRed, Nat.succ_eq_add_one] -/
+/-     have := ih (Γ' := Γ') hap har -/
+/-     simp [ArgCount.naturalize_addN] -/
+/-     /- apply addN_lt_addN_left -/ -/
+/-     sorry -/
+/-     /- exact addN_congr_lt_addN this -/ -/
+/-   case congr aBody bBody ty' subR ih => -/
+/-     cases hTyA; cases hTyB; next ha hb => -/
+/-     sorry -/
+/-     /- intro z -/ -/
+/-     /- exact ih ha hb -/ -/
+/-   case beta => exact β_naturalize -/
 
-theorem STLC.extracted_1
-    {ante post top : Stx} {Γ' : TyArr Γ}
-    /- (r : Red b b') -/
-    (ord : upperBoundRed har Γ' < upperBoundRed hap Γ')
-    (hTop : CTySpec Γ top (argTy ⇒ rTy))
-    (hAnte : CTySpec Γ ante argTy) 
-    (hPost : CTySpec Γ post argTy)
-    : upperBoundRed hTop Γ' (upperBoundRed hPost Γ') ≤ upperBoundRed hTop Γ' (upperBoundRed hAnte Γ') :=
-  match hTop with
-  | .bvar _ => by
-    dsimp [upperBoundRed]
-    sorry
-  | .abs _ => sorry
-  | .app _ _ => sorry
+/- theorem STLC.extracted_1 -/
+/-     {ante post top : Stx} {Γ' : TyArr Γ} -/
+/-     /- (r : Red b b') -/ -/
+/-     (ord : upperBoundRed har Γ' < upperBoundRed hap Γ') -/
+/-     (hTop : CTySpec Γ top (argTy ⇒ rTy)) -/
+/-     (hAnte : CTySpec Γ ante argTy)  -/
+/-     (hPost : CTySpec Γ post argTy) -/
+/-     : upperBoundRed hTop Γ' (upperBoundRed hPost Γ') ≤ upperBoundRed hTop Γ' (upperBoundRed hAnte Γ') := -/
+/-   match hTop with -/
+/-   | .bvar _ => by -/
+/-     dsimp [upperBoundRed] -/
+/-     sorry -/
+/-   | .abs _ => sorry -/
+/-   | .app _ _ => sorry -/
 
 open ArgCount in
-theorem Red_dec (h : Red a b)
+theorem Red_dec
+    {Γ' : TyArr Γ}
+    (every : TyArr.Every Monotonic Γ')
+    (h : Red a b)
     (hTyA : CTySpec Γ a ty) (hTyB : CTySpec Γ b ty)
     : (upperBoundRed hTyB Γ') < (upperBoundRed hTyA Γ') := by
   induction h generalizing ty Γ Γ'
@@ -235,20 +255,29 @@ theorem Red_dec (h : Red a b)
     obtain rfl := CTySpec_unique hap har
     obtain rfl := CTySpec_singleton hap har
     simp only [upperBoundRed, Nat.succ_eq_add_one]
-    exact addN_lt_addN_right $ ih hbp hbr $ upperBoundRed hap Γ'
+    exact addN_lt_addN_right 
+      $ lt_sufficency (upperBoundRed_Monotonic every)
+      $ ih every hbp hbr
   case appr ih =>
     cases hTyA; cases hTyB; next hap hbp _ har hbr =>
     obtain ⟨rfl, _⟩ := (Ty.arr.injEq _ _ _ _).mp $ CTySpec_unique hbp hbr
     obtain rfl := CTySpec_singleton hbp hbr
     simp only [upperBoundRed, Nat.succ_eq_add_one]
-    specialize (ih (Γ' := Γ') hap har)
-    apply le_addN_lt_lt _ (Nat.add_lt_add_right (lt_naturalize ih) 1)
-    /- have := upperBoundRed_Monotonic -/
-    sorry
-  case congr aBody bBody ty' subR ih =>
+    specialize (ih (Γ' := Γ') every hap har)
+    have m : Monotonic (upperBoundRed hbp Γ') := upperBoundRed_Monotonic every
+    simp only [Monotonic] at m
+    have := m.1 _ _ (upperBoundRed_Monotonic every) (upperBoundRed_Monotonic every) (le_of_lt ih)
+    exact le_trans_lt
+      (addN_le_addN_right this)
+      $ addN_lt_addN_left
+      $ Nat.add_one_lt_add_one_iff.mpr (lt_naturalize ih)
+  case congr aBody bBody ty' _ ih =>
     cases hTyA; cases hTyB; next ha hb =>
-    intro z
-    exact ih ha hb
+    intro z zMono
+    exact ih (.cons zMono every) ha hb
   case beta =>
     exact β_lt
+
+/-- info: 'STLC.Red_dec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms Red_dec
 
