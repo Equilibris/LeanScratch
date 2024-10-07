@@ -5,10 +5,6 @@ namespace STLC
 -- TODO: look into Coc to try to understand how this nonsense works
 -- It would be really neat if I could use a type function as a argument type in a mutual manor here
 
-def Arity : Ty → ℕ
-  | .direct _ => 0
-  | .arr _ b => (Arity b) + 1
-
 def ArgCount : Ty → Type
   | .arr a b  => ArgCount a → ArgCount b
   | .direct _ => ℕ
@@ -162,48 +158,6 @@ theorem le_congr
   simp only [Monotonic] at hAFMono hARMono
   exact le_trans (hAFMono.1 aR bR hARMono hBRMono hRLe) (hFLe bR hBRMono)
 
-/- def strongNeq (a b : ArgCount z) : Prop := match z with -/
-/-   | .direct _ => a ≠ b -/
-/-   | .arr _ _ => ∀ x, strongNeq (a x) (b x) -/
-
-/- theorem le_strongNeq_lt {a b : ArgCount z} (hLe : a ≤ b) (hNeq : strongNeq a b) : a < b := -/
-/-   match z with -/
-/-   | .direct _ => Nat.lt_iff_le_and_ne.mpr ⟨hLe, hNeq⟩ -/
-/-   | .arr _ _ => fun x => le_strongNeq_lt (hLe x) (hNeq x) -/
-
-/- theorem le_lt {a b : ArgCount z} (hLe : a ≤ b) (hNeq : a ≠ b) : a < b := -/
-/-   match z with -/
-/-   | .direct _ => Nat.lt_iff_le_and_ne.mpr ⟨hLe, hNeq⟩ -/
-/-   | .arr _ _ => by -/
-/-     sorry -/
-
-/- theorem le_iff_lt_or_eq {a b : ArgCount z} : a ≤ b ↔ (a < b ∨ a = b) := -/
-/-   match z with -/
-/-   | .direct _ => Nat.le_iff_lt_or_eq -/
-/-   | .arr fn arg => by -/
-/-     /- change (∀ x, _) ↔ _ -/ -/
-/-     /- apply forall_congr' -/ -/
-/-     constructor -/
-/-     · intro h -/
-/-       by_cases this : a = b -/
-/-       · exact .inr this -/
-/-       · sorry -/
-/-       /- apply forall_or_right.mp -/ -/
-/-       /- apply forall_congr' -/ -/
-/-       /- intro x -/ -/
-/-       /- rcases le_iff_lt_or_eq.mp (h x) with (h|h') -/ -/
-/-       /- · exact .inl h -/ -/
-/-       /- · right -/ -/
-/-       /-   induction arg -/ -/
-/-       /-   · sorry -/ -/
-/-       /-   · sorry -/ -/
-/-       /- exact fun h => le_iff_lt_or_eq.mp h -/ -/
-/-     · rintro (h|rfl) -/
-/-       · exact le_of_lt h -/
-/-       · exact self_le_self -/
-
-/- theorem le_forward {a b : ArgCount (.arr a' b')} () : a ≤ b := sorry -/
-
 theorem lt_naturalize {a b : ArgCount v} (h : a < b) : naturalize a < naturalize b :=
   match v with
   | .direct _ => by
@@ -263,17 +217,6 @@ theorem addN_lt_addN_left {n : ArgCount t} (h : a < b) : addN n a < addN n b := 
     change lt _ _
     simp only [ArgCount, addN, lt] at a b h ⊢
     exact fun _ _ => addN_lt_addN_left h
-
-/- @[simp] -/
-/- theorem addN_le_addN_right {a b : ArgCount t} (h : (a < b) ∨ a = b) : (addN a n < addN b n) ∨ addN a n = addN b n := match h with -/
-/-   | .inl h => .inl (addN_lt_addN_right h) -/
-/-   | .inr rfl => .inr rfl -/
-
-/- @[simp] -/
-/- theorem addN_le_addN_left {n : ArgCount t} (h : (a < b) ∨ a = b) : addN n a < addN n b ∨ addN n a = addN n b := -/
-/-   match h with -/
-/-   | .inl h => .inl (addN_lt_addN_left h) -/
-/-   | .inr rfl => .inr rfl -/
 
 @[simp]
 theorem addN_le_addN_right {a b : ArgCount t} (h : (a ≤ b)) : (addN a n ≤ addN b n) := 

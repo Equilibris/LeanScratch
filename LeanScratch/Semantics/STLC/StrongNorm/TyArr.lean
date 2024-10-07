@@ -91,8 +91,6 @@ theorem get_append_right
     rfl
   | hd :: tl, .cons hd' tl', 0 => by
     simp only [nonpos_iff_eq_zero, List.length_eq_zero, one_ne_zero] at hLe
-  /- | hd :: tl, .cons hd' tl', [], .nil,  n+1 => by -/
-  /-   simp only [List.length_cons, Nat.reduceSubDiff, List.getElem?_nil] at h' -/
   | hd :: tl, .cons hd' tl', n+1 => by
     change (hd :: (tl ++ _))[n + 1]? = _ at h
     change get _ (TyArr.cons hd' (tl' ++ Γ₂')) = _

@@ -23,6 +23,17 @@ theorem CTySpec_TySpec (h : CTySpec Γ s ty) : TySpec Γ s ty := by
   · exact .app (by assumption) (by assumption)
   · exact .abs (by assumption)
 
+/- theorem TySpec_CTySpec (h : TySpec Γ s ty) : ∃ _ : CTySpec Γ s ty, True := by -/
+/-   induction h -/
+/-   · use (.bvar (by assumption)) -/
+/-   case app iha ihb => -/
+/-     rcases iha with ⟨iha, _⟩ -/
+/-     rcases ihb with ⟨ihb, _⟩ -/
+/-     use .app (by assumption) (by assumption) -/
+/-   case abs ih => -/
+/-     rcases ih with ⟨ih, _⟩ -/
+/-     use .abs (by assumption) -/
+
 def build (h : infer Γ s = some ty) : CTySpec Γ s ty :=
   match s with
   | .bvar idx => .bvar (by simpa only)

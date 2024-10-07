@@ -50,19 +50,6 @@ What does it mean for something to happen 'eventually'
 
 namespace STLC
 
-/- theorem addN_congr_lt_addN -/
-/-     {ha : ArgCount (.arr argTy retTy)} -/
-/-     {hb hc : ArgCount argTy} -/
-/-     (hLt : hb < hc) -/
-/-     : (ha hb).addN (naturalize hb + 1) < (ha hc).addN (naturalize hc + 1) := -/
-/-   match retTy with -/
-/-   | .direct _ => by -/
-/-     change lt _ _ -/
-/-     simp only [lt, addN, naturalize, Nat.add_eq, ← add_assoc, Nat.lt_eq, add_lt_add_iff_right] -/
-/-     sorry -/
-/-   | .arr _ _ => by -/
-/-     sorry -/
-
 open ArgCount in
 theorem β_lt
     {p₁ : CTySpec Γ (.app (.abs argTy body) arg) t₁}
@@ -174,75 +161,6 @@ theorem upperBoundRed_Monotonic
 end
 
 open ArgCount in
-theorem β_naturalize
-    {p₁ : CTySpec Γ (.app (.abs argTy body) arg) t₁}
-    {p₂ : CTySpec Γ (body.β arg) t₁}
-    : naturalize (upperBoundRed p₂ Γ' ) < naturalize (upperBoundRed p₁ Γ') := by
-  dsimp [Stx.β] at p₂
-  cases p₁; next pRepl hBody =>
-  cases hBody; next hBody =>
-  dsimp [upperBoundRed]
-  change CTySpec ([] ++ Γ) _ _ at pRepl
-  change CTySpec ([] ++ (_ :: Γ)) _ _ at hBody
-  obtain ⟨replSz, z⟩ : ∃ replSz, upperBoundRed pRepl Γ' = replSz := exists_eq'
-  have := upperBoundRed_eq_replace (Γ₂ := []) (Γ'₂ := .nil) pRepl z hBody p₂
-  change upperBoundRed _ (TyArr.cons _ _) = _ at this
-  rw [z, this, naturalize_addN, Nat.add_comm (m := 1), ←Nat.add_assoc]
-  change _ < (upperBoundRed _ Γ').naturalize + 1 + _
-  calc
-    _ < _ + 1 := Nat.lt_succ_self _
-    _ ≤ _ := Nat.le_add_right _ _
-
-/-- info: 'STLC.β_naturalize' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms β_naturalize
-
-/- theorem Red_decn -/
-/-     (h : Red a b) -/
-/-     (hTyA : CTySpec Γ a ty) (hTyB : CTySpec Γ b ty) -/
-/-     : (upperBoundRed hTyB Γ').naturalize < (upperBoundRed hTyA Γ').naturalize := by -/
-/-   induction h generalizing ty Γ Γ' -/
-/-   case appl ih => -/
-/-     cases hTyA; cases hTyB; next hap hbp _ har hbr => -/
-/-     obtain rfl := CTySpec_unique hap har -/
-/-     obtain rfl := CTySpec_singleton hap har -/
-/-     simp only [upperBoundRed, Nat.succ_eq_add_one] -/
-/-     have := ih (Γ' := Γ') hbp hbr -/
-/-     simp [ArgCount.naturalize_addN] -/
-/-     sorry -/
-/-     /- exact addN_lt_addN_right $ ih hbp hbr $ upperBoundRed hap Γ' -/ -/
-/-   case appr ih => -/
-/-     cases hTyA; cases hTyB; next hap hbp _ har hbr => -/
-/-     obtain ⟨rfl, _⟩ := (Ty.arr.injEq _ _ _ _).mp $ CTySpec_unique hbp hbr -/
-/-     obtain rfl := CTySpec_singleton hbp hbr -/
-/-     simp only [upperBoundRed, Nat.succ_eq_add_one] -/
-/-     have := ih (Γ' := Γ') hap har -/
-/-     simp [ArgCount.naturalize_addN] -/
-/-     /- apply addN_lt_addN_left -/ -/
-/-     sorry -/
-/-     /- exact addN_congr_lt_addN this -/ -/
-/-   case congr aBody bBody ty' subR ih => -/
-/-     cases hTyA; cases hTyB; next ha hb => -/
-/-     sorry -/
-/-     /- intro z -/ -/
-/-     /- exact ih ha hb -/ -/
-/-   case beta => exact β_naturalize -/
-
-/- theorem STLC.extracted_1 -/
-/-     {ante post top : Stx} {Γ' : TyArr Γ} -/
-/-     /- (r : Red b b') -/ -/
-/-     (ord : upperBoundRed har Γ' < upperBoundRed hap Γ') -/
-/-     (hTop : CTySpec Γ top (argTy ⇒ rTy)) -/
-/-     (hAnte : CTySpec Γ ante argTy)  -/
-/-     (hPost : CTySpec Γ post argTy) -/
-/-     : upperBoundRed hTop Γ' (upperBoundRed hPost Γ') ≤ upperBoundRed hTop Γ' (upperBoundRed hAnte Γ') := -/
-/-   match hTop with -/
-/-   | .bvar _ => by -/
-/-     dsimp [upperBoundRed] -/
-/-     sorry -/
-/-   | .abs _ => sorry -/
-/-   | .app _ _ => sorry -/
-
-open ArgCount in
 theorem Red_dec
     {Γ' : TyArr Γ}
     (every : TyArr.Every Monotonic Γ')
@@ -280,4 +198,29 @@ theorem Red_dec
 
 /-- info: 'STLC.Red_dec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms Red_dec
+
+open ArgCount in
+theorem Red_nat_dec
+    {Γ' : TyArr Γ}
+    (every : TyArr.Every Monotonic Γ')
+    (h : Red a b)
+    (hTyA : CTySpec Γ a ty) (hTyB : CTySpec Γ b ty)
+    : (upperBoundRed hTyB Γ').naturalize < (upperBoundRed hTyA Γ').naturalize := lt_naturalize (Red_dec every h hTyA hTyB)
+
+open ArgCount in
+theorem RedPlus_nat_dec
+    {Γ' : TyArr Γ}
+    (every : TyArr.Every Monotonic Γ')
+    (h : RedPlus a b)
+    (hTyA : CTySpec Γ a ty) (hTyB : CTySpec Γ b ty)
+    : (upperBoundRed hTyB Γ').naturalize < (upperBoundRed hTyA Γ').naturalize := by
+  induction h
+  case single a => exact Red_nat_dec every a hTyA hTyB
+  case tail b c redPlus red ih =>
+    have := TySpec_CTySpec $ LongTypePreservation (CTySpec_TySpec hTyA) (Relation.TransGen.to_reflTransGen redPlus)
+    exact lt_trans (Red_nat_dec every red this hTyB) (ih this)
+
+inductive ReflTransCount (R : a → a → Prop) : a → a → ℕ → Prop
+  | refl : ReflTransCount R x x 0
+  | tail : ReflTransCount R x y n → R y z → ReflTransCount R x z n.succ
 

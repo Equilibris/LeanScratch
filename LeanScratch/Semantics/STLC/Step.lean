@@ -1,5 +1,6 @@
 import LeanScratch.Semantics.STLC.Stx
 import LeanScratch.Semantics.STLC.Red
+import LeanScratch.Semantics.STLC.StrongNorm
 import Mathlib.Data.Rel
 import LeanScratch.Relation
 import LeanScratch.Rel2
@@ -86,3 +87,36 @@ theorem step_none_terminal (h : step main = .none) : Stx.Terminal main :=
       · exfalso
         exact isAbs _ _ rfl
       next ha => exact ⟨ha, hb⟩
+
+def full_red_direct'
+    body
+    (spec : TySpec Γ body ty)
+    (Γ' : TyArr Γ)
+    (hΓ' : TyArr.Every ArgCount.Monotonic Γ') 
+    : Stx :=
+  match h : step body with
+  | .none => body
+  | .some nBody => full_red_direct' nBody (LongTypePreservation spec ((step_some_RedPlus h).to_reflTransGen)) Γ' hΓ'
+termination_by (upperBoundRed (TySpec_CTySpec spec) Γ').naturalize
+decreasing_by
+· simp_wf
+  exact RedPlus_nat_dec hΓ' (step_some_RedPlus h) _ _
+
+def full_red_direct
+    body
+    (spec : TySpec Γ body ty)
+    : Stx :=
+  let ⟨a, b⟩ := allZeros Γ
+  full_red_direct' body spec a b
+where
+  allZeros : (Γ : List Ty) → (Γ' : TyArr Γ) ×' (TyArr.Every ArgCount.Monotonic Γ')
+    | [] => ⟨.nil, .nil⟩
+    | _ :: tl =>
+      let ⟨a, b⟩ := allZeros tl
+      ⟨.cons ArgCount.zero a, .cons ArgCount.zero_Monotonic b⟩
+
+def full_red (body : Stx) (Γ : List Ty) : Option Stx :=
+  match h : infer Γ body with
+  | some _ => full_red_direct body (infer_TySpec.mp h)
+  | none => none
+
