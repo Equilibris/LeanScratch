@@ -88,7 +88,6 @@ theorem Even_iff_exN : Even a ↔ ∃ n, n + n = a := by
       rcases ih with ⟨w, p⟩
       use (w+1)
       calc
-        w + 1 + (w + 1) = _ := rfl
         w + 1 + w + 1   = _ := by rw [Nat.add_comm (w + 1), ←Nat.add_assoc]
         w + w + 1 + 1   = _ := by rw [p]
   · rintro ⟨w, p⟩
