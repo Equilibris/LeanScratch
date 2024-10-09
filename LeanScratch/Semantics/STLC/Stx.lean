@@ -7,8 +7,8 @@ import Mathlib.Util.WhatsNew
 namespace STLC
 
 inductive Ty
-  | direct (id : ℕ)
-  | arr (fn arg : Ty)
+  | direct (id : ℕ)   -- a unique type
+  | arr (fn arg : Ty) -- a function type
 deriving DecidableEq
 
 infixr:30 " ⇒ " => Ty.arr
