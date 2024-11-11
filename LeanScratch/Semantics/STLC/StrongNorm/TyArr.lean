@@ -69,14 +69,9 @@ theorem get_idx_eq_jdx
     {h  : Γ[idx]? = some t}
     (h' : Γ[jdx]? = some t)
     (heq : idx = jdx)
-    : get h Γ' = get h' Γ' :=
-  match Γ, Γ', idx, jdx with
-  | [], .nil, _, _ => Option.noConfusion (List.getElem?_nil.symm.trans h)
-  | hd :: tl, .cons hd' tl', 0, 0 => rfl
-  | hd :: tl, .cons hd' tl', idx+1, jdx+1 => by
-    dsimp [get]
-    simp only [add_left_inj] at heq
-    exact get_idx_eq_jdx _ heq
+    : get h Γ' = get h' Γ' := by
+  subst heq
+  rfl
 
 theorem get_append_right
     {Γ₁' : TyArr Γ₁} {Γ₂' : TyArr Γ₂}

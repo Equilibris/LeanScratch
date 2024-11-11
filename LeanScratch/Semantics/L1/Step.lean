@@ -52,8 +52,6 @@ lemma step_bool_none : step ⟨.bool z, s⟩ = none := by
 lemma step_int_none : step ⟨.int z, s⟩ = none := by
   simp only [step, implies_true]
 
-theorem x {γ : Sort _} {x : γ → Prop} : (∀ a, ¬(x a)) ↔ ¬∃ a, x a := by tauto
-
 lemma forall_eq_none : (∀ a b, ¬(o = some (Prod.mk a b))) → (o = none) := by
   intro h
   exact Option.eq_none_iff_forall_not_mem.mpr fun a ↦ h a.1 a.2

@@ -138,19 +138,20 @@ theorem red_det : Red i o₁ ∧ Red i o₂ → o₁ = o₂ := by
   intro ⟨ha, hb⟩
   induction ha generalizing o₂
   <;> cases hb
-  <;> try trivial
+  <;> try trivial -- most cases are trivially contradictory like op1.op_add make no sense
 
   case op1.op2 epre spre e₁ s₁ op eprealt ha a_ih e₂ s₂ epre_is_int hb => 
-    have ⟨_, p⟩ := isInt_defn.mpr epre_is_int
-    rw [p] at ha
-    contradiction
+    obtain ⟨_, rfl⟩ := isInt_defn.mpr epre_is_int
+    -- ha states that .int can reduce, thereby contradiction
+    cases ha
 
   case op2.op1 epre spre e₁ s₁ e op ha e_is_int a_ih e₂ s₂ hb =>
-    have ⟨_, p⟩ := isInt_defn.mpr e_is_int
-    rw [p] at hb
-    contradiction
+    obtain ⟨_, rfl⟩ := isInt_defn.mpr e_is_int
+    cases hb
 
+  -- Trivial cases where we simply do a symetric nested reduction
   case op1.op1 epre spre e₁ s₁ o e2 ha a_ih e₂ s₂ hb =>
+    -- This could be much nicer using prod.mk.injEq in an obtain ⟨rfl, rfl⟩ but maybe a bit pain
     injection a_ih hb with eq₁ eq₂
     rw [eq₁, eq₂]
   case op2.op2 epre spre e₁ s₁ _ op ha epre_is_int a_ih e₂ s₂ _ hb =>

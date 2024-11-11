@@ -1,5 +1,6 @@
 import LeanScratch.Semantics.STLC.Stx
 import LeanScratch.Semantics.STLC.Red
+import LeanScratch.Semantics.STLC.Red.Terminal
 import LeanScratch.ListUtils
 import Mathlib.Data.Rel
 import LeanScratch.Relation

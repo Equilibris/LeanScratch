@@ -124,5 +124,6 @@ example (ha : Odd a) (hb : Odd b) : Even (a + b) := by
   rcases hb with ⟨wb, rfl⟩
   rw [Even_iff_exN]
   use wa + wb + 1
+
   omega
 

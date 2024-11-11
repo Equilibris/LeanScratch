@@ -77,7 +77,6 @@ theorem CtxConsistency (trans : Red ⟨e, s⟩ ⟨e', s'⟩) (a : TySpec s w x) 
   case eif c t f => exact .eif c t f
   case ewhile c b => exact .ewhile c b
 
-
 theorem TypePreservation : Red ⟨e, s⟩ ⟨e', s'⟩ → TySpec s e x → TySpec s' e' x := by
   intro h spec
   induction spec generalizing e' s'
