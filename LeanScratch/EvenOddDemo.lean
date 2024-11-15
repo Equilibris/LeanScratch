@@ -127,3 +127,10 @@ example (ha : Odd a) (hb : Odd b) : Even (a + b) := by
 
   omega
 
+inductive F : ℕ → Type
+  | Z : F 0
+
+example (h : F n) : n = 0 :=
+  match h with
+  | .Z => rfl
+
