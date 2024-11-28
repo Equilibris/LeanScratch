@@ -1,7 +1,7 @@
 import Mathlib.Data.Nat.PSub
 import Mathlib.Data.Rel
 import Mathlib.Data.Vector.Basic
-
+import LeanScratch.ListUtils
 
 
 -- Inductive and broken datatypes,
@@ -124,6 +124,10 @@ theorem MuTy.incrementExposed_zero : MuTy.incrementExposed skip 0 = id := by
   induction x generalizing skip
   <;> simp_all only [incrementExposed, add_zero, ite_self, id_eq]
 
+abbrev Ty.incrementExposed (skip inc : ℕ) : Ty → Ty
+  | .direct term => .direct (term.incrementExposed skip inc)
+  | .arr arg cont => .arr (arg.incrementExposed skip inc) (cont.incrementExposed skip inc)
+
 /- theorem MuTy.reduce_Valid (hfull : Valid 0 full) (hInd : Ind n.succ body) : Valid n (body.reduce n full) := match body with -/
 /-   | .unit => .unit -/
 /-   | .prod _ _ => .prod sorry sorry -/
@@ -166,7 +170,7 @@ inductive Expr (fΓ : List Ty) : /- bvar ctx -/ List MuTy → /- ? ctx -/ List M
   | exitMu : Expr _ bvs mΓ (.direct (.μ body))
       → Expr _ bvs mΓ (.direct (body.reduce 0 (.μ body)))
 
-  | enterBvar : mΓ[idx]? = some t → Expr _ bvs mΓ (.direct t) →
+  | enterBMu : mΓ[idx]? = some t → Expr _ bvs mΓ (.direct t) →
       Expr _ bvs mΓ (.direct (.bvar idx))
 
   | ematch : Expr _ bvs mΓ (.direct (.sum a b)) →
@@ -192,12 +196,12 @@ def Expr.bvarShift (arg : Expr fΓ (bvs1 ++ bvs) mΓ t) : Expr fΓ (bvs1 ++ bvs2
   | .unit => .unit
   | .projr body => .projr body.bvarShift
   | .projl body => .projl body.bvarShift
-  | .ematch scrutinee a b=> .ematch scrutinee.bvarShift (
+  | .ematch scrutinee a b => .ematch scrutinee.bvarShift (
     let a : Expr _ ((_ :: _) ++ bvs) _ _ := a
     a.bvarShift) (
     let b : Expr _ ((_ :: _) ++ bvs) _ _ := b
     b.bvarShift)
-  | .enterBvar p body => .enterBvar p body.bvarShift
+  | .enterBMu p body => .enterBMu p body.bvarShift
   | .exitMu body => .exitMu body.bvarShift
   | .enterMu body => .enterMu body.bvarShift
   | .inr body => .inr body.bvarShift
@@ -274,13 +278,20 @@ def Expr.bvarShift (arg : Expr fΓ (bvs1 ++ bvs) mΓ t) : Expr fΓ (bvs1 ++ bvs2
 /-   | .bvar _ _ p => .bvar _ _ p -/
 /-   | .app a b => .app a.?shift b.?shift -/
 /-   | .lam body => .lam body.?shift -/
+
+-- F : * → *
+-- μ F = F (μ F)
+
 def Expr.growShiftGen :
-    Expr fΓ bvs (mpre ++ mΓ) t →
-    Expr fΓ bvs (mpre ++ (List.map (MuTy.incrementExposed 0 (mpre.length)) mx) ++ (List.map (MuTy.incrementExposed 0 ((mpre ++ mx).length)) mΓ)) t
+    Expr fΓ bvs (mpre ++ (List.map (MuTy.incrementExposed 0 mpre.length) mΓ)) t →
+    Expr fΓ bvs (mpre ++ (List.map (MuTy.incrementExposed 0 (mpre.length)) mx) ++ (List.map (MuTy.incrementExposed 0 ((mpre ++ mx).length)) mΓ)) (t.incrementExposed mpre.length mx.length)
   | .unit => .unit
-  | .enterBvar eq body =>
+  | .enterBMu (idx := idx) eq body =>
     /- .enterBvar eq body.growShift -/
-    sorry
+    if idx < mpre.length then
+      sorry
+    else
+      .enterBMu (idx := idx + mx.length) sorry body.growShiftGen
   | .enterMu body => 
     sorry
     /- by -/
@@ -320,7 +331,7 @@ def Expr.bvarReplace
     exact a.bvarReplace r) (by
     change Expr _ ((_ :: pls) ++ bvs) _ _
     exact b.bvarReplace r)
-  | .enterBvar v body, r => .enterBvar v (body.bvarReplace r)
+  | .enterBMu v body, r => .enterBMu v (body.bvarReplace r)
   | .exitMu body, r => .exitMu (body.bvarReplace r)
   | .enterMu (body := bodyT) body, r => .enterMu
     (body.bvarReplace $ Expr.growShift (m := [bodyT.μ]) r)

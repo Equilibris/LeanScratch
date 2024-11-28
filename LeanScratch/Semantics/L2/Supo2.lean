@@ -62,6 +62,25 @@ theorem Ex4.P : ∀ n, ¬Ex4.FV n := fun x hx => by cases hx
 
 end Q19
 
+section Q21
+
+namespace FOrder
+
+inductive TopTy
+  | bool
+  | int
+  | void
+deriving DecidableEq, Repr
+
+inductive Ty
+  | top (t : TopTy)
+  | arr (arg : TopTy) (ret : Ty)
+deriving DecidableEq, Repr
+
+end Q21.FOrder
+
+section Q23
+
 theorem BvarShift.gen (hMain : TySpec Γ (Γ₂ ++ Γ') body tout)
     : TySpec Γ (Γ₂ ++ Γlead ++ Γ') (body.bvarShift Γlead.length Γ₂.length) tout :=
   match body with
@@ -139,7 +158,6 @@ theorem BvarShift.gen (hMain : TySpec Γ (Γ₂ ++ Γ') body tout)
     change TySpec _ (_ :: Γ₂ ++ Γ') _ _ at bodyIh
     change TySpec _ (_ :: _ :: Γ₂ ++ Γ') _ _ at valIh
     exact .letRecValFn (BvarShift.gen valIh) (BvarShift.gen bodyIh)
-
 
 theorem Subst.gen (hTy : TySpec Γ Γ' e t) (hMain : TySpec Γ (Γlead ++ (t :: Γ')) body tout)
     : TySpec Γ (Γlead ++ Γ') (body.replace Γlead.length e) tout :=
@@ -219,7 +237,9 @@ theorem Subst.gen (hTy : TySpec Γ Γ' e t) (hMain : TySpec Γ (Γlead ++ (t :: 
 
 theorem Subst : TySpec Γ Γ' e t → TySpec Γ (t :: Γ') body tout → TySpec Γ Γ' (body.replace 0 e) tout
   := Subst.gen (Γlead := [])
+end Q23
 
+section Q24
 
 theorem TypePreservation (tyPre : TySpec Γ Γ' e t) (hMain : Red ⟨e, s1⟩ ⟨e', s2⟩) : TySpec Γ Γ' e' t :=
   match e with
@@ -275,9 +295,6 @@ theorem TypePreservation (tyPre : TySpec Γ Γ' e t) (hMain : Red ⟨e, s1⟩ �
     cases hMain
   | .abs ty body => by
     cases hMain
-    /- rename_i _ bodyIh -/
-    /- change TySpec _ (ty :: Γlead ++ t :: Γ') _ _ at bodyIh -/
-    /- exact .abs (Subst.gen hTy bodyIh) -/
   | .app fn arg => by
     cases hMain <;> cases tyPre
     case app1 ha _ argTy bodyTy =>
@@ -298,3 +315,21 @@ theorem TypePreservation (tyPre : TySpec Γ Γ' e t) (hMain : Red ⟨e, s1⟩ �
 /-- info: 'L2.TypePreservation' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms TypePreservation 
 
+end Q24
+
+namespace Q28
+
+inductive TyZ : Type 1
+  | unit
+  | prod (a b : TyZ)
+  | sum  (a b : TyZ)
+  | variant (t : Type) (record : t → TyZ)
+
+inductive Stx : TyZ → Type 1
+  | unit : Stx .unit
+  | prod (a : Stx aT) (b : Stx bT) : Stx (.prod aT bT)
+  | inl bT (x : Stx aT) : Stx (.prod aT bT)
+  | inr aT (x : Stx bT) : Stx (.prod aT bT)
+  | variant (v : t) (x : Stx (mapping v)) : Stx (.variant t mapping)
+
+end Q28

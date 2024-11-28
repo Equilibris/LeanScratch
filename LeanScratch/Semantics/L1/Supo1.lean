@@ -7,7 +7,7 @@ namespace L1
 
 section Q1
 def factorial : Expr := [l1|
-  while !l2 do (
+  while !l2 ≥ 0 do (
     (l3 := !l2);
     (l4 := !l1);
     (while !l3 ≥ 2 do
@@ -18,7 +18,7 @@ def factorial : Expr := [l1|
 
 /--
 info: def L1.factorial : Expr :=
-(Expr.deref "l2").ewhile
+((Expr.deref "l2").op Op.gte (Expr.int 0)).ewhile
   ((Expr.assign "l3" (Expr.deref "l2")).seq
     ((Expr.assign "l4" (Expr.deref "l1")).seq
       ((((Expr.deref "l3").op Op.gte (Expr.int 2)).ewhile
@@ -26,8 +26,7 @@ info: def L1.factorial : Expr :=
               (Expr.assign "l3" ((Expr.deref "l3").op Op.add (Expr.int (-1)))))).seq
         (Expr.assign "l2" ((Expr.deref "l2").op Op.add (Expr.int (-1)))))))
 -/
-#guard_msgs in
-#print factorial
+#guard_msgs in #print factorial
 end Q1
 
 section Q2
@@ -70,7 +69,7 @@ example
         )], initQ3⟩
       -- Sorry ugly type, I cannot be bothered to type this in the new syntax form
       -- Can also be solved by unification but lean bans this in top-level decls
-      (((Expr.int (Int.ofNat 3)).op Op.gte (Expr.int 1)).eif
+      ([l1|3 ≥ 1].eif
         (((Expr.assign "l2" ((Expr.deref "l2").op Op.add (Expr.deref "l1"))).seq
               (Expr.assign "l1" ((Expr.deref "l1").op Op.add (Expr.int (-1))))).seq
           (((Expr.deref "l1").op Op.gte (Expr.int 1)).ewhile
