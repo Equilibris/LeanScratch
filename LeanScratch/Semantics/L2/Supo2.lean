@@ -80,7 +80,6 @@ deriving DecidableEq, Repr
 end Q21.FOrder
 
 section Q23
-
 theorem BvarShift.gen (hMain : TySpec Γ (Γ₂ ++ Γ') body tout)
     : TySpec Γ (Γ₂ ++ Γlead ++ Γ') (body.bvarShift Γlead.length Γ₂.length) tout :=
   match body with
@@ -333,3 +332,135 @@ inductive Stx : TyZ → Type 1
   | variant (v : t) (x : Stx (mapping v)) : Stx (.variant t mapping)
 
 end Q28
+
+end L2
+
+namespace y2003p5q11
+
+inductive Ty
+  | int
+  | unit
+  | arr (arg ret : Ty)
+
+inductive Expr
+  | int (i : Int) -- In implementation we need to specify overflow behaviour
+  | skip
+  | assign (l : String) (body : Expr)
+  | deref (l : String)
+  | abs (ty : Ty) (body : Expr)
+  | app (fn arg : Expr)
+  | bvar (idx : ℕ)
+
+namespace Expr
+
+def bvarShift (shift skip : ℕ) : Expr → Expr
+  | .bvar n => .bvar $ if n < skip then n else n + shift
+  | .app a b => .app (a.bvarShift shift skip) (b.bvarShift shift skip)
+  | .abs ty body => .abs ty (body.bvarShift shift skip.succ)
+  | .assign l body => .assign l (body.bvarShift shift skip)
+  | x@(.int _) | x@(.deref _) | x@(.skip) => x
+
+def replace.bvar (bvarId idx_shift : ℕ) (replace : Expr) : Expr :=
+  match compare bvarId idx_shift with
+  | .lt => .bvar bvarId
+  | .eq => replace.bvarShift idx_shift 0
+  | .gt => .bvar bvarId.pred
+
+-- Replace also needs to add idx to every value within replace to ensure that the binders still point towards the right points
+def replace (idx_shift : ℕ) (body replace : Expr) : Expr := match body with
+  | .bvar n => Expr.replace.bvar n idx_shift replace
+  | .app fn arg => .app (fn.replace idx_shift replace) (arg.replace idx_shift replace)
+  | .abs ty v => .abs ty (v.replace idx_shift.succ replace)
+  | .assign l body => .assign l (body.replace idx_shift replace)
+  | x@(.int _) | x@(.deref _) | x@(.skip) => x
+
+def β (body repl : Expr) : Expr := (body.replace 0 repl)
+
+end Expr
+
+abbrev Ctx := AList (fun (_ : String) => Int)
+
+def change (v : α) : ℕ → List α → List α
+  | 0,    _ :: tl =>  v :: tl
+  | n+1, hd :: tl => hd :: (change v n tl)
+  | _, [] => []
+
+def reduce : Expr → Ctx → Option (Expr × Ctx)
+  | .deref l, s => (match s.lookup l with
+      | .some v => .some (.int v, s)
+      | .none => .some (.int 0, s.insert l 0))
+  | .assign l e, s => (match e with
+    | .int n => .some ⟨.skip, s.insert l n⟩
+    | e => (reduce e s).map (fun ⟨e, s⟩ => ⟨.assign l e, s⟩))
+
+  | .app e1 e2, s => (match e1 with
+    | .abs _ e1 => .some ⟨e1.β e2, s⟩
+    | e1 => (reduce e1 s).map (fun ⟨e1, s⟩ => ⟨.app e1 e2, s⟩ ) )
+
+  | .int _, _ | .skip, _ | .bvar _, _ | .abs _ _ , _ => .none
+
+inductive Red : Expr → Ctx → Expr → Ctx → Prop
+  | deref_hit  : s.lookup l = .some v → Red (.deref l) s (.int v) s
+  | deref_miss : s.lookup l = .none   → Red (.deref l) s (.int 0) (s.insert l 0)
+  | assign_congr : Red e s e' s' → Red (.assign l e) s (.assign l e') s'
+  | assign_write : Red (.assign l (.int v)) s .skip (s.insert l v)
+  | app_congr : Red e s e' s' → Red (.app e arg) s (.app e' arg) s'
+  | beta : Red (.app (.abs _ e1) arg) s (e1.β arg) s
+
+theorem reduce_Red (h : reduce e s = .some ⟨e', s'⟩) : Red e s e' s' := match e with
+  | .deref l => by
+    dsimp [reduce] at h
+    split at h
+    <;> rename_i h'
+    <;> obtain ⟨rfl, rfl⟩ := h
+    · exact .deref_hit  h'
+    · exact .deref_miss h'
+  | .assign l e => by
+    unfold reduce at h
+    split at h
+    <;> rename_i h'
+    <;> simp only [Option.some.injEq, Prod.mk.injEq] at h
+    · obtain ⟨rfl, rfl⟩ := h
+      exact .assign_write
+    · dsimp [Option.map] at h
+      split at h
+      · rename_i hx
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        exact .assign_congr $ reduce_Red hx
+      · contradiction
+  | .app fn arg => by
+    unfold reduce at h
+    split at h
+    · obtain ⟨rfl, rfl⟩ := h
+      exact .beta
+    · dsimp [Option.map] at h
+      split at h
+      · rename_i hx
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        exact .app_congr $ reduce_Red hx
+      · contradiction
+
+theorem Red_reduce (h : Red e s e' s' ) : reduce e s = .some ⟨e', s'⟩ := match e with
+  | .deref l => by
+    cases h <;> simp_all only [reduce]
+  | .app fn arg
+  | .assign l e => by
+    cases h
+    · unfold reduce
+      split
+      · contradiction
+      · rename_i h' _ _
+        simp only [Option.map, Red_reduce h']
+    · rfl
+
+-- Turns out these are really clean one-liners, they are also kinda trivial
+theorem not_Red_reduce (h : ∀ {e' s'}, ¬Red e s e' s') : reduce e s = .none :=
+  Classical.byContradiction
+    (· |> Option.ne_none_iff_exists.mp |>.choose_spec.symm |> reduce_Red |> h)
+theorem not_reduce_Red (h : reduce e s = .none) : ∀ {e' s'}, ¬Red e s e' s' :=
+  Classical.byContradiction
+    (· |> Classical.not_not.mp |> Red_reduce |>.symm.trans h |> Option.noConfusion)
+
+end y2003p5q11

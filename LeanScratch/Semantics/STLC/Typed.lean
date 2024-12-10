@@ -292,4 +292,5 @@ theorem replace_gt_Γ (h : TySpec Γ s t) (hLe : Γ.length ≤ idx) : s.replace 
 
 /-- info: 'STLC.replace_gt_Γ' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms replace_gt_Γ 
+end STLC
 

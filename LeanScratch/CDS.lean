@@ -2,6 +2,11 @@ import Mathlib.Data.Nat.PSub
 
 namespace ConcDisSys
 
+inductive Connective e ts (nodes : N → ℕ → Set E) : Prop
+  | emittedBefore (hlt : prev < ts) (x : e ∈ nodes node prev)
+  | uniqueNow (curr : e ∈ nodes node ts) (unique : ∀ node' ≠ node, e ∉ nodes node' ts)
+  | notEmitted (p : ∀ node, e ∉ nodes node ts)
+
 -- This is a very uncomputable definition, optimally we would be using Σ' over ∃
 -- since it would let us elim into Type but sadly we are unable to do this
 structure Network : Type 1 :=
@@ -17,13 +22,7 @@ structure Network : Type 1 :=
   -- Events are uniquely emitted by a single node. Following this another node
   -- can re-emit said event to show it happened later but some finite amount
   -- of time must have passed.
-  connective : ∀ e ts,
-    -- Either an event was emitted before
-    (∃ node, ∃ prev < ts, e ∈ nodes node prev) ∨
-    -- Or a node uniquely emitted an event
-    (∃ node, (e ∈ nodes node ts) ∧ ∀ node' ≠ node, e ∉ nodes node' ts) ∨
-    -- Or an event is not associated with the ts
-    (∀ node, e ∉ nodes node ts)
+  connective : ∀ e ts, Connective e ts nodes
 
   -- Every event must occur at least once
   eventSaturation : ∀ e, ∃ ts node, e ∈ nodes node ts
@@ -32,7 +31,7 @@ def FirstOccurence {nw : Network} (e : nw.E) (ts : ℕ) : Prop :=
   (∃ node, e ∈ nw.nodes node ts) ∧
   ∀ prev < ts, ∀ nodes, e ∉ nw.nodes nodes prev
 
-theorem FirstOccurence.unique
+def FirstOccurence.unique
     (f1 : FirstOccurence e t1)
     (f2 : FirstOccurence e t2)
     : t1 = t2 :=
@@ -45,7 +44,7 @@ theorem FirstOccurence.unique
     rw [Nat.compare_eq_gt] at h
     exact False.elim $ f1.2 _ h f2.1.choose f2.1.choose_spec
 
-theorem extractFirstOccurence
+def extractFirstOccurence
     {nw : Network} {e : nw.E}
     (end_nd : nw.N) (end_ts : ℕ)
     (p : e ∈ nw.nodes end_nd end_ts)
@@ -54,10 +53,10 @@ theorem extractFirstOccurence
     (ind_ih : ∀ t < current_v, ∀ nd, e ∉ nw.nodes nd t)
     : Exists (FirstOccurence e) :=
   match nw.connective e current_v with
-  | .inl ⟨nd, prev, plt, emitted⟩ => False.elim (ind_ih prev plt nd emitted)
-  | .inr (.inl ⟨nd, ⟨isEmitted, _⟩⟩) =>
-    ⟨current_v, ⟨⟨nd, isEmitted⟩, ind_ih⟩⟩
-  | .inr (.inr cont) =>
+  | .emittedBefore plt emitted => False.elim (ind_ih _ plt _ emitted)
+  | .uniqueNow isEmitted _ =>
+    ⟨current_v, ⟨⟨_, isEmitted⟩, ind_ih⟩⟩
+  | .notEmitted cont =>
     if h' : end_ts = current_v then by
       subst h'
       exact False.elim (cont _ p)
@@ -72,7 +71,7 @@ decreasing_by
 · simp_wf
   omega
 
-theorem hasFirstOccurence {nw : Network} (e : nw.E) : Exists (FirstOccurence e) := 
+def hasFirstOccurence {nw : Network} (e : nw.E) : Exists (FirstOccurence e) := 
   let ⟨ts, nd, p⟩ := nw.eventSaturation e
   extractFirstOccurence nd ts p 0 (Nat.zero_le ts) (fun _ v => by contradiction)
 
