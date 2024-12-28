@@ -27,31 +27,40 @@ structure Network : Type 1 :=
   -- Every event must occur at least once
   eventSaturation : ∀ e, ∃ ts node, e ∈ nodes node ts
 
-def FirstOccurence {nw : Network} (e : nw.E) (ts : ℕ) : Prop :=
-  (∃ node, e ∈ nw.nodes node ts) ∧
-  ∀ prev < ts, ∀ nodes, e ∉ nw.nodes nodes prev
+structure FirstOccurenceOnNode {nw : Network} (e : nw.E) (ts : ℕ) (node : nw.N) : Prop :=
+  occures : e ∈ nw.nodes node ts
+  isFirst : ∀ prev < ts, e ∉ nw.nodes node prev
 
-def FirstOccurence.unique
-    (f1 : FirstOccurence e t1)
-    (f2 : FirstOccurence e t2)
+structure TransmittedAt {nw : Network} (e : nw.E) (ts : ℕ) : Prop :=
+  occures : ∃ node, e ∈ nw.nodes node ts
+  isFirst : ∀ prev < ts, ∀ nodes, e ∉ nw.nodes nodes prev
+
+theorem TransmittedAt_ex_FirstOccurenceOnNode (h : TransmittedAt e ts)
+    : ∃ n, FirstOccurenceOnNode e ts n :=
+  ⟨h.occures.choose,
+    { occures := h.occures.choose_spec, isFirst := (h.isFirst · · h.occures.choose) }⟩
+
+def TransmittedAt.unique
+    (f1 : TransmittedAt e t1)
+    (f2 : TransmittedAt e t2)
     : t1 = t2 :=
   match h : compare t1 t2 with
   | .eq => Nat.compare_eq_eq.mp h
   | .lt => by
     rw [Nat.compare_eq_lt] at h
-    exact False.elim $ f2.2 _ h f1.1.choose f1.1.choose_spec
+    exact False.elim $ f2.isFirst _ h f1.occures.choose f1.occures.choose_spec
   | .gt => by
     rw [Nat.compare_eq_gt] at h
-    exact False.elim $ f1.2 _ h f2.1.choose f2.1.choose_spec
+    exact False.elim $ f1.isFirst _ h f2.occures.choose f2.occures.choose_spec
 
-def extractFirstOccurence
+def extractTransmittedAt
     {nw : Network} {e : nw.E}
     (end_nd : nw.N) (end_ts : ℕ)
     (p : e ∈ nw.nodes end_nd end_ts)
     (current_v : ℕ)
     (hlt : current_v ≤ end_ts)
     (ind_ih : ∀ t < current_v, ∀ nd, e ∉ nw.nodes nd t)
-    : Exists (FirstOccurence e) :=
+    : Exists (TransmittedAt e) :=
   match nw.connective e current_v with
   | .emittedBefore plt emitted => False.elim (ind_ih _ plt _ emitted)
   | .uniqueNow isEmitted _ =>
@@ -61,7 +70,7 @@ def extractFirstOccurence
       subst h'
       exact False.elim (cont _ p)
     else
-      extractFirstOccurence end_nd end_ts p current_v.succ (by omega) (fun t h =>
+      extractTransmittedAt end_nd end_ts p current_v.succ (by omega) (fun t h =>
         if h : t = current_v then by
           subst h
           exact cont
@@ -71,80 +80,46 @@ decreasing_by
 · simp_wf
   omega
 
-def hasFirstOccurence {nw : Network} (e : nw.E) : Exists (FirstOccurence e) := 
+def hasTransmittedAt {nw : Network} (e : nw.E) : Exists (TransmittedAt e) := 
   let ⟨ts, nd, p⟩ := nw.eventSaturation e
-  extractFirstOccurence nd ts p 0 (Nat.zero_le ts) (fun _ v => by contradiction)
+  extractTransmittedAt nd ts p 0 (Nat.zero_le ts) (fun _ v => by contradiction)
 
-/-- info: 'ConcDisSys.hasFirstOccurence' depends on axioms: [propext, Quot.sound] -/
-#guard_msgs in #print axioms hasFirstOccurence
+/-- info: 'ConcDisSys.hasTransmittedAt' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in #print axioms hasTransmittedAt
 
-def Network.happensBefore {nw : Network} (e1 e2 : nw.E) : Prop :=
-  ∃ z, ∃ n > 0, FirstOccurence e1 z ∧ FirstOccurence e2 (z + n)
+namespace Network.Behaviour
 
-abbrev Network.concurrent {nw : Network} (e1 e2 : nw.E) : Prop :=
-  (¬happensBefore e1 e2) ∧ (¬happensBefore e2 e1)
+def Recipient (nw : Network) : Type := nw.E → nw.N
 
 namespace Network
 
-variable (nw : Network)
+def Reliabale {nw : Network} (r : Recipient nw) : Prop :=
+  ∀ event, ∃! ts, event ∈ nw.nodes (r event) ts
 
-set_option quotPrecheck false in section
-scoped infixl:50 "≺" => nw.happensBefore
-scoped infixl:50 "∥" => nw.concurrent
-end
+end Network
 
--- ########################################################################
--- ################################ Ex 8 ##################################
--- ########################################################################
+namespace Node
 
-theorem happensBefore.irrefl : ¬(a ≺ a) := by
-  by_contra h
-  rcases h with ⟨w1, diff, pgt, p1, p2⟩
-  have := FirstOccurence.unique p1 p2
-  omega
+-- To formalize Byzantine behaviour we need to first formalize a 'network
+-- protocol'. This is a relatively complex problem but should be doable
 
-theorem happensBefore.trans (h1 : a ≺ b) (h2 : b ≺ c) : a ≺ c := by
-  rcases h1 with ⟨w1, diff1, pgt1, p11, p12⟩
-  rcases h2 with ⟨w2, diff2, _,    p21, p22⟩
-  obtain rfl := FirstOccurence.unique p12 p21
-  exists w1
-  exists diff1 + diff2
-  rw [Nat.add_assoc] at p22
-  exact ⟨Nat.add_pos_left pgt1 diff2, p11, p22⟩
+structure CrashSet (nw : Network) : Type :=
+  crashedNodes : ℕ → Set nw.N
+  crashedCannotTransmit : ∀ ts, ∀ n ∈ crashedNodes ts, nw.nodes n ts = {}
 
--- ########################################################################
--- ################################ Ex 9 ##################################
--- ########################################################################
+-- Crashed nodes never recover
+def CrashStop {nw : Network} (cs : CrashSet nw) : Prop :=
+  ∀ n ts, n ∈ cs.crashedNodes ts → n ∈ cs.crashedNodes (ts + 1)
 
-theorem optionSpace (e1 e2 : nw.E) : e1 ≺ e2 ∨ e2 ≺ e1 ∨ e1 ∥ e2 := by
-  have ⟨w1, p1⟩ := hasFirstOccurence e1
-  have ⟨w2, p2⟩ := hasFirstOccurence e2
-  cases h : compare w1 w2
-  <;> simp only [Nat.compare_eq_eq, Nat.compare_eq_gt, Nat.compare_eq_lt] at h
-  · refine .inl ⟨w1, w2 - w1, by omega, p1, ?_⟩
-    rw [ ←Nat.add_sub_assoc (Nat.le_of_succ_le h) _,
-         Nat.add_comm,
-         Nat.add_sub_assoc (Nat.le_refl _) _,
-         Nat.sub_self,
-         Nat.add_zero]
-    exact p2
+end Node
 
-  · subst h
-    refine .inr $ .inr ⟨?_, ?_⟩
-    <;> rintro ⟨ts, diff, hlt, p1', p2'⟩
-    · have eq1 := p1.unique p1'
-      have eq2 := p2.unique p2'
-      simp_all only [gt_iff_lt, add_right_eq_self, add_zero, Nat.lt_irrefl]
-    · have eq1 := p2.unique p1'
-      have eq2 := p1.unique p2'
-      simp_all only [gt_iff_lt, add_right_eq_self, add_zero, Nat.lt_irrefl]
-  · refine .inr $ .inl ⟨w2, w1 - w2, by omega, p2, ?_⟩
-    rw [ ←Nat.add_sub_assoc (Nat.le_of_succ_le h) _,
-         Nat.add_comm,
-         Nat.add_sub_assoc (Nat.le_refl _) _,
-         Nat.sub_self,
-         Nat.add_zero]
-    exact p1
+namespace Timing
 
-end ConcDisSys.Network
+def ArrivedBy {nw : Network} (e : nw.E) (n : nw.N) (ts : ℕ) : Prop :=
+  ∃ ts' ≤ ts, e ∈ nw.nodes n ts'
+
+def Syncronous {nw : Network} (r : Recipient nw) : Prop :=
+  ∃ upperBound, ∀ e, ∃ ts, TransmittedAt e ts ∧ ArrivedBy e (r e) (ts + upperBound)
+
+end Network.Behaviour.Timing
 
