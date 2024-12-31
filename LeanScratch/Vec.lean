@@ -1,4 +1,4 @@
-import Mathlib.Data.Fin.Fin2
+import LeanScratch.Fin2
 
 inductive Vec (T : Type u) : Nat → Type u
   | nil : Vec T 0

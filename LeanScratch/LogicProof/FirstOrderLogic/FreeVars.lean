@@ -16,25 +16,25 @@ namespace FOL
 -- -- Free variables are encoded as out-of-range De Bujin indicies.
 
 -- Desicion procedures for these are trivial
-inductive Term.Free (n : Nat) : Term TA → Prop
+inductive Term.Free (n : Fin2 Vars) : Term Vars TA → Prop
   | var : Free n (.var n)
   | const idx : Free n (path.lookup idx) → Free n (.const nm path)
 
-def Term.vars : Term TA → List Nat
+def Term.vars : Term Vars TA → List (Fin2 Vars)
   | .var v => [v]
   | .const _ args => combine args
     where
-      combine {n} : Vec _ n → List Nat
+      combine {n} : Vec _ n → List (Fin2 Vars)
         | .nil => []
         | .cons hd tl => (vars hd) ++ combine tl
 
-theorem Term.vars_Free {term : Term Arity} (h : n ∈ Term.vars term) : term.Free n := match term with
+theorem Term.vars_Free {term : Term Vars Arity} (h : n ∈ Term.vars term) : term.Free n := match term with
   | .var v => by
     simp only [vars, List.mem_singleton] at h
     subst h
     exact .var
   | .const _ args =>
-    let rec x {l2} (l2 : Vec (Term Arity) l2)
+    let rec x {l2} (l2 : Vec (Term Vars Arity) l2)
       (hMem : n ∈ vars.combine l2)
       : ∃ idx, Free n (l2.lookup idx) :=
       match l2 with
@@ -61,11 +61,11 @@ theorem Term.vars_Free {term : Term Arity} (h : n ∈ Term.vars term) : term.Fre
     exact .const idx v
 termination_by sizeOf term
 
-theorem Term.Free_vars {term : Term Arity} (h : term.Free n) : n ∈ vars term :=
+theorem Term.Free_vars {term : Term Vars Arity} (h : term.Free n) : n ∈ vars term :=
   match term with
   | .var v => by cases h; simp only [vars, List.mem_singleton]
   | .const _ tl =>
-    let rec x {l idx} (l : Vec (Term Arity) l) (h' : Free n (Vec.lookup idx l)) : n ∈ vars.combine l :=
+    let rec x {l idx} (l : Vec (Term Vars Arity) l) (h' : Free n (Vec.lookup idx l)) : n ∈ vars.combine l :=
       match idx, l with
       | .fz,   _ %:: tl => by
         simp [vars.combine, Vec.lookup] at h' ⊢
@@ -78,7 +78,8 @@ theorem Term.Free_vars {term : Term Arity} (h : term.Free n) : n ∈ vars term :
     simp only [vars]
     exact x tl v
 
-inductive Formula.Free : Nat → Formula TA PA → Prop
+-- dont use this defninition
+inductive Formula.Free : Fin2 Vars → Formula Vars TA PA → Prop
   | pred idx : (app.lookup idx).Free n → Free n (.pred n app)
 
   | neg   : Free n v → Free n v.neg
@@ -92,8 +93,8 @@ inductive Formula.Free : Nat → Formula TA PA → Prop
   | iffl  : Free n v → Free n (.iff v x)
   | iffr  : Free n v → Free n (.iff x v)
 
-  | exis : Free n (v $ .var n.succ) → Free n (.exis v)
-  | univ : Free n (v $ .var n.succ) → Free n (.univ v)
+  | exis : Free n.fs (v $ .var (n.left 1)) → Free (.fs n) (.exis v)
+  | univ : Free n.fs (v $ .var (n.left 1)) → Free (.fs n) (.univ v)
 
 def Term.fresh (n : Nat) : Term Arity → Nat
   | .var v => max n v.succ

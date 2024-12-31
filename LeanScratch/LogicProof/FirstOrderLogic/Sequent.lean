@@ -1,9 +1,9 @@
 import LeanScratch.LogicProof.FirstOrderLogic.Formula
-import LeanScratch.LogicProof.FirstOrderLogic.Sub
 
 namespace FOL
 
-inductive Sequent {TNm : Type} {PNm : Type} {TA : TNm → ℕ} {PA : PNm → ℕ} : List (Formula TA PA) → List (Formula TA PA) → Type
+inductive Sequent {TNm : Type} {PNm : Type} {TA : TNm → ℕ} {PA : PNm → ℕ} :
+    {Vars : Nat} → List (Formula Vars TA PA) → List (Formula Vars TA PA) → Type
   -- This has the same effect as using sets
   | cycleL : Sequent (Γ ++ [hd]) Δ
       → Sequent ([hd] ++ Γ) Δ
