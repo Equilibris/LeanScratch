@@ -8,3 +8,4 @@ instance Fin2.decEq : DecidableEq (Fin2 n) := fun
     | .isTrue p => .isTrue $ p.rec rfl
     | .isFalse p => .isFalse (p ∘ (Fin2.fs.injEq _ _).mp)
 
+

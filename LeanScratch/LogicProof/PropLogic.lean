@@ -136,6 +136,9 @@ def Ex7_3 : Sequent [.neg (.disj a b)] [.conj (.neg a) (.neg b)] :=
 def Ex9_1 : Sequent [] [.imp (.conj a (.neg a)) b] :=
   .impR $ .conjL $ .cycleL $ .negL .triv
 
+def falseTheorem : Sequent [] [.imp a b, a] :=  
+  .impR $ .cycleR .triv
+
 end Exs
 
 /- def Formula.Sat (ctx : A → Prop) : Formula A → Prop -/

@@ -1,14 +1,9 @@
 import LeanScratch.LogicProof.FirstOrderLogic.Formula
 import LeanScratch.LogicProof.FirstOrderLogic.Valuation
+import LeanScratch.LogicProof.FirstOrderLogic.Sequent
 
 namespace FOL.Exs
 
--- True but non-computable due to choice
-theorem imp_eq_not_or : (a → b) ↔ (¬a ∨ b) := ⟨
-  fun f => Classical.byContradiction
-    (let ⟨nna, nb⟩ := not_or.mp ·
-    nb (f $ Classical.not_not.mp nna)),
-  fun | .inl na, a => (na a).elim | .inr b, _ => b⟩
 
 namespace Ex11
 
@@ -21,26 +16,26 @@ def equalityDomain (dom : Type) : equalityDomain.t :=
     preds := fun | _, %[a, b] => a = b
   }
 
-def quantAndBlock (n : Nat) : equalityDomain.Form :=
-  let n := n.pred
-  quant (allNeq n (n.pred)) n
-where
-  quant inp : _ → _
-    | 0   => .exis inp
-    | n+1 => .exis $ quant inp n
+/- def quantAndBlock (n : Nat) : equalityDomain.Form := -/
+/-   let n := n.pred -/
+/-   quant (allNeq n (n.pred)) n -/
+/- where -/
+/-   quant inp : _ → _ -/
+/-     | 0   => .exis inp -/
+/-     | n+1 => .exis $ quant inp n -/
 
-  allNeq : _ → _ → _
-    | 0,   _ => .pred .unit $ %[.var 0, .var 0] -- how to encode true
-    | n, k+1 => .conj (.neg $ .pred .unit $ %[.var n, .var (k+1)]) (allNeq n k)
-    | n+2, 0 => .conj (.neg $ .pred .unit $ %[.var (n+2), .var 0]) $ allNeq (n+1) n
-    | 1,   0 => (.neg $ .pred .unit $ %[.var 1, .var 0])
+/-   allNeq : _ → _ → _ -/
+/-     | 0,   _ => .pred .unit $ %[.var 0, .var 0] -- how to encode true -/
+/-     | n, k+1 => .conj (.neg $ .pred .unit $ %[.var n, .var (k+1)]) (allNeq n k) -/
+/-     | n+2, 0 => .conj (.neg $ .pred .unit $ %[.var (n+2), .var 0]) $ allNeq (n+1) n -/
+/-     | 1,   0 => (.neg $ .pred .unit $ %[.var 1, .var 0]) -/
 
-open Formula Term PUnit in
-/--
-info: ((pred unit (var 2 %:: var 1 %:: %[])).neg.conj
-        ((pred unit (var 2 %:: var 0 %:: %[])).neg.conj (pred unit (var 1 %:: var 0 %:: %[])).neg)).exis.exis.exis
--/
-#guard_msgs in #reduce quantAndBlock 3
+/- open Formula Term PUnit in -/
+/- /-- -/
+/- info: ((pred unit (var 2 %:: var 1 %:: %[])).neg.conj -/
+/-         ((pred unit (var 2 %:: var 0 %:: %[])).neg.conj (pred unit (var 1 %:: var 0 %:: %[])).neg)).exis.exis.exis -/
+/- -/ -/
+/- #guard_msgs in #reduce quantAndBlock 3 -/
 
 -- The theorem to prove the domain has to be greater than a given size is quite straight forward
 
@@ -181,4 +176,18 @@ theorem Le.AxT : AxT leDef := fun ⟨w1, p1⟩ ⟨w2, p2⟩ => ⟨w1 + w2, by om
 end Ex12
 
 -- TODO: Ex13
+
+def Example9 {P : Term TA → Formula TA PA} : Sequent [.univ λ x => (.conj (P x) Q) ] [.univ λ x => P x] :=
+  .univR λ x => .univL x $ .conjL .triv
+
+def Example10 {B : Term TA → Formula TA PA} : Sequent [.univ λ x => .imp A (B x)] [.imp A (.univ B)] :=
+  .impR $ .univR λ x => .cycleL $ .univL x $ .impL .triv .triv
+
+-- TODO: Ex 14, this is trivially a bunch of calls to `rw`
+-- TODO: Ex 15, these are also trivial
+
+def Ex16 {Q : Term TA → Formula TA PA} a b : Sequent [] [.neg $ .univ fun y => (.conj (.disj (Q a) (Q b)) (.neg $ Q y))] :=
+  .negR $ .cL $ .univL a $ .cycleL $ .univL b
+    $ .conjL $ .cycleL $ .negL $ .cycleL $ .cycleL $ .conjL $ .cycleL $
+      .negL $ .disjL .triv $ .cycleR .triv
 
