@@ -77,6 +77,7 @@ instance : HAppend (Holding v a) (Holding v b) (Holding v (a ++ b)) := ⟨Holdin
 -- I include a proof of this here to make sure we can keep a focus on this
 -- only holding based of the underlying assumption on (in our case choice,
 -- but in practice) LEM.
+  /- imp_iff_not_or -/
 private theorem imp_eq_not_or : (a → b) ↔ (¬a ∨ b) := ⟨
   fun f => Classical.byContradiction
     (let ⟨nna, nb⟩ := not_or.mp ·
@@ -103,6 +104,7 @@ private def Sequent.transform.pullOut
   | .inl p => ⟨⟨0, Nat.zero_lt_succ _⟩, p⟩
   | .inr ⟨idx, p⟩ => ⟨idx.succ, p⟩
 
+/-- Proves the correctness of the Sqeuent construct -/
 def Sequent.transform {TA : TNm → Nat} {PA : PNm → Nat} {Γ Δ : List (Formula TA PA)} (v : Valuation TA PA)
     : Sequent Γ Δ → Holding v Γ → ∃ (idx : Fin (Δ.length)), Δ[idx].denote v
   | .cycleL s, .cons hd tl =>
@@ -212,11 +214,11 @@ def Sequent.transform {TA : TNm → Nat} {PA : PNm → Nat} {Γ Δ : List (Formu
       | ⟨⟨n+1, hlt⟩, p⟩ => exact ⟨⟨n+1, hlt⟩, p⟩
     · exact ⟨⟨0, Nat.zero_lt_succ _⟩, iff_iff_and_or_not_and_not.mpr $ .inr ⟨ha, hb⟩⟩
   | .univR s, k =>
-    Sequent.transform.pullOut $ forall_or_right.mp 
+    Sequent.transform.pullOut $ forall_or_right.mp
       (match s · |>.transform v k with
       | ⟨⟨0, _⟩, p⟩ => .inl p
       | ⟨⟨n+1, hlt⟩, p⟩ => .inr ⟨⟨n, Nat.add_lt_add_iff_right.mp hlt⟩, p⟩)
 
 /-- info: 'FOL.Sequent.transform' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms Sequent.transform 
+#guard_msgs in #print axioms Sequent.transform
 

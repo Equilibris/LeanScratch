@@ -8,7 +8,7 @@ inductive Term {Nm : Type} (Arity : Nm → Nat)
 inductive Formula {TNm PNm : Type} (TA : TNm → Nat) (PA : PNm → Nat) 
   | pred (nm : PNm) (app : Vec (Term TA) (PA nm)) : Formula TA PA 
 
-  -- We use non-parametric HOS to get around substitution issues
+  -- We use non-parametric HOAS to get around substitution issues
   | univ : (Term TA → Formula TA PA) → Formula TA PA 
   | exis : (Term TA → Formula TA PA) → Formula TA PA 
 

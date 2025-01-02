@@ -4,7 +4,6 @@ import LeanScratch.LogicProof.FirstOrderLogic.Sequent
 
 namespace FOL.Exs
 
-
 namespace Ex11
 
 abbrev equalityDomain.t : Type 1 := Interpretation (fun _ : Empty => 0) (fun _ : Unit => 2)
@@ -191,3 +190,35 @@ def Ex16 {Q : Term TA → Formula TA PA} a b : Sequent [] [.neg $ .univ fun y =>
     $ .conjL $ .cycleL $ .negL $ .cycleL $ .cycleL $ .conjL $ .cycleL $
       .negL $ .disjL .triv $ .cycleR .triv
 
+namespace Ex17
+variable {P : Term TA → Formula TA PA} {Q : Term TA → Formula TA PA} {a : Term TA} {f : Term TA → Term TA}
+
+def pa : Sequent [.conj (.univ P) (.univ Q)] [.univ fun y => .conj (P y) (Q y)] :=
+  .conjL $ .univR fun x => .conjR (.univL x .triv) $ .cycleL $ .univL x .triv
+
+def pb : Sequent [.univ fun y => .conj (P y) (Q y)] [.conj (.univ P) (.univ Q)] :=
+  .conjR (.univR fun x => .univL x $ .conjL .triv) (.univR fun x => .univL x $ .conjL $ .cycleL .triv)
+
+-- This feels like black magic due to how clean HOAS lets one implement this
+def pc : Sequent [.univ fun x => .imp (P x) (P (f x)), P a] [P (f (f a))] :=
+  .cL $ .univL a $ .cycleL $ .univL (f a) $ .impL (.cycleL $ .impL .triv .triv) .triv
+end Ex17
+
+-- TODO: Ex 18
+
+namespace Ex19
+variable {P : Term TA → Formula TA PA} {Q : Term TA → Formula TA PA}
+         {a b : Term TA} {f : Term TA → Term TA}
+
+def pa : Sequent [.disj (P a) (.exis (P ∘ f))] [.exis P] := 
+  .disjL (.exisR a .triv) (.exisL λ y => .exisR (f y) .triv)
+
+def pb : Sequent [.exis λ v => .disj (P v) (Q v)] [.exis P, .exis Q] :=
+  .exisL λ v => .disjL (.exisR v .triv) $ .wR (.exisR v .triv)
+
+-- Took me some time to get this as I really annoyingly think very
+-- constructively. Would be nice to talk about this in a supo
+def pc : Sequent [] [.exis λ z => .imp (P z) (.conj (P a) (P b))] :=
+  .cR $ .exisR b $ .impR $ .wR $ .exisR a $ .impR $ .conjR .triv $ .wL .triv
+
+end Ex19
