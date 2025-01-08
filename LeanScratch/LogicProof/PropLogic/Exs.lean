@@ -1,5 +1,9 @@
 import LeanScratch.LogicProof.PropLogic.Formula
+import LeanScratch.LogicProof.PropLogic.DenseFormula
+import LeanScratch.LogicProof.PropLogic.Clause
+import LeanScratch.LogicProof.PropLogic.SAT.DPLL
 import LeanScratch.LogicProof.PropLogic.Sequent
+import LeanScratch.Fin2
 
 namespace PLogic.Exs
 
@@ -25,4 +29,12 @@ def Ex7_3 : Sequent [.neg (.disj a b)] [.conj (.neg a) (.neg b)] :=
 def Ex9_1 : Sequent [] [.imp (.conj a (.neg a)) b] :=
   .impR $ .conjL $ .cycleL $ .negL .triv
 
+
+-- This shows that even though my solution is provably correct its completely
+-- unsuable without filtering.
+abbrev InTextEx1 : Formula (Fin 2) := .iff (.iff (.atom ⟨0, by omega⟩) (.atom ⟨1, by omega⟩)) (.iff (.atom ⟨1, by omega⟩) (.atom ⟨0, by omega⟩))
+#eval (InTextEx1.transform .false).toClauseSet |> Clause.setRemoveTauto
+
 end Exs
+
+

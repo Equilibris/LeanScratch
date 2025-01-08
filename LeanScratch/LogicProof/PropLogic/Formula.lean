@@ -9,6 +9,7 @@ inductive Formula (Atom : Type)
   | imp  : Formula Atom → Formula Atom → Formula Atom
   | iff  : Formula Atom → Formula Atom → Formula Atom
   | neg  : Formula Atom → Formula Atom
+deriving Repr
 
 def Formula.denote (base : Atom → Prop) : Formula Atom → Prop
   | .t => True

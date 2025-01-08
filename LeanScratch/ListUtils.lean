@@ -52,3 +52,11 @@ theorem List.getLast?_eq_cons (h : tl.getLast? = some v) : (hd :: tl).getLast? =
   · simp_all only [length_cons, add_tsub_cancel_right, lt_add_iff_pos_right, zero_lt_one,
       getElem?_eq_getElem, Option.some.injEq, getElem_cons_succ]
 
+theorem List.filter_length_le_length {v : List _} : (v.filter p).length ≤ v.length :=
+  match v with
+  | [] => Nat.zero_le _
+  | hd :: tl => by
+    by_cases h : p hd <;> simp only [h, filter_cons_of_pos, length_cons, add_le_add_iff_right, Bool.false_eq_true, not_false_eq_true, filter_cons_of_neg, length_cons]
+    · exact filter_length_le_length
+    · exact Nat.le_succ_of_le filter_length_le_length
+
