@@ -232,6 +232,16 @@ def ClauseSet.getUnit : ClauseSet α → Option (α × Bool)
     | .none => ClauseSet.getUnit tl
     | .some v => .some v
 
+theorem ClauseSet.getUnit_cons
+    {cs : ClauseSet α}
+    (hEq : .some ⟨v, b⟩ = ClauseSet.getUnit (hd :: cs))
+    : .some ⟨v, b⟩ = hd.unitize ∨ .some ⟨v, b⟩ = cs.getUnit := by
+  dsimp [getUnit, Clause.unitize] at hEq
+  split at hEq
+  <;> rename_i h
+  · exact .inr hEq
+  · split at h <;> simp_all [Clause.unitize]
+
 def fup (base : α → Prop) (ls : List (α × Bool)) (x : α) : Prop :=
   match ls with
   | [] => base x
@@ -363,8 +373,166 @@ theorem ClauseSet.units_hold {base : α → Prop}
 def ClauseSet.elimUnits (cs : ClauseSet α) : ClauseSet α :=
   cs.extractUnits.foldl (fun acc ⟨a, b⟩ => acc.elim a b) cs
 
-def ClauseSet.elim_single_unit {cs : ClauseSet α} (h : .some ⟨v, b⟩ = cs.getUnit)
-  : cs.holds (fup base [⟨v, b⟩]) = (cs.elim v b).holds base := sorry
+-- Massive theorem that was very needed
+def ClauseSet.elim_point_assign
+    {cs : ClauseSet α}
+    : cs.holds (fup base [⟨v, b⟩]) = (cs.elim v b).holds base :=
+  match cs with
+  | [] => by simp [holds, elim]
+  | hd :: tl =>
+    have := elim_point_assign (cs := tl) (v := v) (b := b) (base := base)
+    by
+    by_cases h' : Clause.contains v b hd
+    <;> simp only [holds_cons, elim, decide_not, h',   decide_True,  Bool.not_true,
+          not_false_eq_true,  List.filter_cons_of_neg, decide_False, Bool.not_false,
+          Bool.false_eq_true, List.filter_cons_of_pos, List.map_cons]
+    <;> simp only [this, elim, decide_not, eq_iff_iff, and_iff_right_iff_imp, and_congr_left_iff]
+    <;> intro _
+    · exact clauseContains h'
+    · rw [clauseRemove h']
+  where
+    clauseRemove {hd} (h : ¬Clause.contains v b hd) : hd.denote (fup base [(v, b)]) = (Clause.remove v b hd).denote base :=
+      match b with
+      | .true  => by
+        dsimp [Clause.contains] at h
+        dsimp [Clause.remove, Clause.denote]
+        rw [clauseRemove.conjoin_nonmem h, clauseRemove.disjoinEq]
+      | .false  => by
+        dsimp [Clause.contains] at h
+        dsimp [Clause.remove, Clause.denote]
+        rw [clauseRemove.disjoin_nonmem h, clauseRemove.conjoinEq]
+
+    clauseRemove.conjoinEq {l}
+        : Clause.denote.conjoin (fup base [(v, false)]) l = Clause.denote.conjoin base (l.filter (¬· = v)) :=
+      match l with
+      | [] => rfl
+      | hd :: tl => by
+        by_cases hEq : hd = v
+        · simp only [Clause.denote.conjoin, hEq, clauseRemove.conjoinEq, decide_not, decide_True,
+            Bool.not_true, Bool.false_eq_true, not_false_eq_true, List.filter_cons_of_neg, eq_iff_iff,
+            and_iff_right_iff_imp]
+          intro _
+          simp only [fup, ↓reduceIte]
+        · simp [Clause.denote.conjoin, hEq]
+          rw [clauseRemove.conjoinEq]
+          have : fup base [(v, false)] hd = base hd := by simp only [fup, hEq, ↓reduceIte]
+          rw [this]
+          simp only [decide_not]
+    clauseRemove.disjoinEq {l}
+        : Clause.denote.disjoin (fup base [(v, true)]) l = Clause.denote.disjoin base (l.filter (¬· = v)) :=
+      match l with
+      | [] => rfl
+      | hd :: tl => by
+        by_cases hEq : hd = v
+        · simp only [Clause.denote.disjoin, hEq, clauseRemove.disjoinEq, decide_not, decide_True,
+            Bool.not_true, Bool.false_eq_true, not_false_eq_true, List.filter_cons_of_neg, eq_iff_iff,
+            or_iff_right_iff_imp]
+          intro h
+          simp only [fup, ↓reduceIte] at h
+        · simp only [Clause.denote.disjoin, decide_not, hEq, decide_False, Bool.not_false,
+            List.filter_cons_of_pos]
+          rw [clauseRemove.disjoinEq]
+          have : fup base [(v, true)] hd = base hd := by simp only [fup, hEq, ↓reduceIte]
+          rw [this]
+          simp only [decide_not]
+
+    clauseRemove.conjoin_nonmem {l b} (hNmem : v ∉ l)
+        : Clause.denote.conjoin (fup base [⟨v, b⟩]) l = Clause.denote.conjoin base l :=
+      match l with
+      | [] => rfl
+      | hd :: tl => by
+        simp only [List.mem_cons, not_or] at hNmem
+        rcases hNmem with ⟨neq, hNmem⟩
+        simp only [Clause.denote.conjoin, clauseRemove.conjoin_nonmem hNmem, eq_iff_iff,
+          and_congr_left_iff]
+        intro _
+        cases b
+        <;> simp_all [fup]
+        · exact .inl (neq ·.symm)
+        · exact fun _ => (neq ·.symm)
+    clauseRemove.disjoin_nonmem {l b} (hNmem : v ∉ l) 
+        : Clause.denote.disjoin (fup base [⟨v, b⟩]) l = Clause.denote.disjoin base l :=
+      match l with
+      | [] => rfl
+      | hd :: tl => by
+        simp only [List.mem_cons, not_or] at hNmem
+        rcases hNmem with ⟨neq, hNmem⟩
+        simp only [Clause.denote.disjoin, clauseRemove.disjoin_nonmem hNmem, eq_iff_iff]
+        constructor
+        <;> rintro (h|triv)
+        <;> (try exact .inr triv)
+        <;> cases b
+        <;> simp_all only [fup, if_true_left, ite_self, true_or, if_false_left, and_true]
+        · exact .inl $ h (neq ·.symm)
+        · exact .inl (neq ·.symm)
+
+
+    clauseContains {hd} (h : Clause.contains v b hd) : hd.denote (fup base [(v, b)]) :=
+      match b with
+      | .true  => by
+        dsimp [Clause.contains, Clause.denote] at h ⊢
+        rw [imp_iff_not_or]
+        exact .inl (clauseContains.pos h)
+      | .false => by
+        dsimp [Clause.contains, Clause.denote] at h ⊢
+        intro _
+        exact clauseContains.neg h
+
+    clauseContains.pos {l} (h : v ∈ l) (conj : Clause.denote.conjoin (fup base [(v, true)]) l) : False :=
+      match l with
+      | [] => (List.mem_nil_iff _).mp h
+      | hd :: tl => by
+        have ⟨conja, conjb⟩ := (Clause.denote.conjoin_append (a := [hd])).mp conj
+        rcases List.mem_cons.mp h with (rfl|h)
+        · simp only [Clause.denote.conjoin, fup, ↓reduceIte, and_true] at conja
+        · exact clauseContains.pos h conjb
+    clauseContains.neg {l} (h : v ∈ l) : Clause.denote.disjoin (fup base [(v, false)]) l :=
+      match l with
+      | [] => ((List.mem_nil_iff _).mp h).elim
+      | hd :: tl =>
+        (Clause.denote.disjoin_append (a := [hd])).mpr $ by
+        rcases List.mem_cons.mp h with (rfl|h)
+        · simp only [Clause.denote.disjoin, fup, ↓reduceIte, or_false, if_true_left, true_or]
+        · exact .inr $ clauseContains.neg h
+
+/--
+info: 'PLogic.ClauseSet.elim_point_assign' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms ClauseSet.elim_point_assign
+
+
+def ClauseSet.elim_single_unit
+    {cs : ClauseSet α} (h : .some ⟨v, b⟩ = cs.getUnit)
+    : cs.holds (fup base [⟨v, b⟩]) = (cs.elim v b).holds base :=
+  match cs with
+  | [] => Option.noConfusion h
+  | hd :: tl => by
+    by_cases h' : Clause.contains v b hd
+    <;> simp only [holds_cons, elim, decide_not, h', decide_True, Bool.not_true,
+          Bool.false_eq_true, not_false_eq_true, List.filter_cons_of_neg,
+          decide_False, Bool.not_false, List.filter_cons_of_pos, List.map_cons]
+    · rcases ClauseSet.getUnit_cons h with (h|h)
+      · have : hd.denote (fup base [⟨v, b⟩]) := by
+          simp only [Clause.unitize] at h
+          split at h
+          case h_3 => exact Option.noConfusion h
+          all_goals obtain ⟨rfl, rfl⟩ := (Option.some.injEq _ _).mpr h
+          all_goals simp only [Clause.denote, Clause.denote.conjoin, fup, ↓reduceIte, and_true,
+            Clause.denote.disjoin, imp_self, or_false, imp_self]
+        simp only [this, true_and]
+        sorry
+      · rw [elim_single_unit h]
+        simp only [elim, decide_not, eq_iff_iff, and_iff_right_iff_imp]
+        intro _
+        apply Clause.contains_denote (b := b) (v := v) _ h'
+        split
+        <;> rename_i x
+        · subst x
+          simp only [fup, ↓reduceIte, not_false_eq_true]
+        · obtain rfl := (Bool.not_eq_true _).mp x
+          simp only [fup, ↓reduceIte]
+    · sorry
+    
 
 -- This is false due to cool things with logic and stuff
 /- def ClauseSet.elimUnits.correct -/
