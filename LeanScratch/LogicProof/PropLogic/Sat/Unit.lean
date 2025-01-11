@@ -1,6 +1,6 @@
 import LeanScratch.LogicProof.PropLogic.Clause
 import LeanScratch.LogicProof.PropLogic.ClauseSet
-import LeanScratch.LogicProof.PropLogic.SAT.fup
+import LeanScratch.LogicProof.PropLogic.Sat.Fup
 import LeanScratch.ListUtils
 
 namespace PLogic

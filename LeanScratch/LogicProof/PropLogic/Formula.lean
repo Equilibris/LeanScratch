@@ -21,3 +21,6 @@ def Formula.denote (base : Atom → Prop) : Formula Atom → Prop
   | .iff a b => a.denote base ↔ b.denote base
   | .imp a b => a.denote base → b.denote base
 
+def Formula.satisfiable (form : Formula Atom) : Prop := ∃ base, form.denote base
+def Formula.tauto       (form : Formula Atom) : Prop := ∀ base, form.denote base
+

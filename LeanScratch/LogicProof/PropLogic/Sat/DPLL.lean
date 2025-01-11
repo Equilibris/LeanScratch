@@ -1,9 +1,9 @@
 import LeanScratch.LogicProof.PropLogic.Clause
 import LeanScratch.LogicProof.PropLogic.ClauseSet
-import LeanScratch.LogicProof.PropLogic.SAT.fup
-import LeanScratch.LogicProof.PropLogic.SAT.removeTauto
-import LeanScratch.LogicProof.PropLogic.SAT.unit
-import LeanScratch.LogicProof.PropLogic.SAT.elim
+import LeanScratch.LogicProof.PropLogic.Sat.Fup
+import LeanScratch.LogicProof.PropLogic.Sat.RemoveTauto
+import LeanScratch.LogicProof.PropLogic.Sat.Unit
+import LeanScratch.LogicProof.PropLogic.Sat.Elim
 import LeanScratch.ListUtils
 
 namespace PLogic
@@ -118,4 +118,8 @@ termination_by cs.size
 -- Took some time but here we go
 /-- info: 'PLogic.dpll' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms dpll
+
+def DpllResult.toDecidable {cs : ClauseSet α} : DpllResult cs → Decidable (∃ base, cs.holds base)
+  | .holds ls v => .isTrue ⟨fup fffun ls, v⟩
+  | .fails p => .isFalse $ not_exists.mpr p
 

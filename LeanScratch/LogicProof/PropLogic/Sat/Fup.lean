@@ -37,7 +37,7 @@ theorem fup.either (f : (α → Prop) → Prop) (h : f base) v
   · rw [fup.simpl (b := .true) hBase]
     exact .inl h
 
-def fup.dec
+instance fup.dec
     {base : α → Prop}
     ls
     (h : Decidable (base x)) : Decidable (fup base ls x) :=
