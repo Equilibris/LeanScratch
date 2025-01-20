@@ -1,7 +1,7 @@
 import LeanScratch.LogicProof.PropLogic.Formula
 import LeanScratch.LogicProof.PropLogic.DenseFormula
 import LeanScratch.LogicProof.PropLogic.Clause
-import LeanScratch.LogicProof.PropLogic.SAT.DPLL
+import LeanScratch.LogicProof.PropLogic.Sat.DPLL
 import LeanScratch.LogicProof.PropLogic.Sequent
 import LeanScratch.Fin2
 
@@ -33,7 +33,52 @@ def Ex9_1 : Sequent [] [.imp (.conj a (.neg a)) b] :=
 -- This shows that even though my solution is provably correct its completely
 -- unsuable without filtering.
 abbrev InTextEx1 : Formula (Fin 2) := .iff (.iff (.atom ⟨0, by omega⟩) (.atom ⟨1, by omega⟩)) (.iff (.atom ⟨1, by omega⟩) (.atom ⟨0, by omega⟩))
-#eval (InTextEx1.transform .false).toClauseSet |> Clause.setRemoveTauto
+
+-- Looks like my algorithm is insanely inefficent to find these... ah well
+/--
+info: [{ args := [0, 0, 1], lits := [0] },
+ { args := [0], lits := [0, 0, 1] },
+ { args := [0, 1, 0], lits := [0] },
+ { args := [0], lits := [0, 1, 0] },
+ { args := [1, 0, 1], lits := [0] },
+ { args := [1], lits := [0, 0, 1] },
+ { args := [1, 1, 0], lits := [0] },
+ { args := [1], lits := [0, 1, 0] },
+ { args := [0, 0, 1], lits := [1] },
+ { args := [0], lits := [1, 0, 1] },
+ { args := [0, 1, 0], lits := [1] },
+ { args := [0], lits := [1, 1, 0] },
+ { args := [1, 0, 1], lits := [1] },
+ { args := [1], lits := [1, 0, 1] },
+ { args := [1, 1, 0], lits := [1] },
+ { args := [1], lits := [1, 1, 0] },
+ { args := [1, 0, 1], lits := [1] },
+ { args := [1], lits := [1, 0, 1] },
+ { args := [1, 1, 0], lits := [1] },
+ { args := [1], lits := [1, 1, 0] },
+ { args := [0, 0, 1], lits := [1] },
+ { args := [0], lits := [1, 0, 1] },
+ { args := [0, 1, 0], lits := [1] },
+ { args := [0], lits := [1, 1, 0] },
+ { args := [1, 0, 1], lits := [0] },
+ { args := [1], lits := [0, 0, 1] },
+ { args := [1, 1, 0], lits := [0] },
+ { args := [1], lits := [0, 1, 0] },
+ { args := [0, 0, 1], lits := [0] },
+ { args := [0], lits := [0, 0, 1] },
+ { args := [0, 1, 0], lits := [0] },
+ { args := [0], lits := [0, 1, 0] }]
+-/
+#guard_msgs in
+#eval InTextEx1.transform .true |>.toClauseSet
+
+abbrev Ex20 : ClauseSet Bool := [⟨[], [.true, .false]⟩, ⟨[.true], [.false]⟩, ⟨[.false], [.true]⟩, ⟨[.true, .false], []⟩]
+
+/-- info: PLogic.DpllResult.fails _ -/
+#guard_msgs in
+#eval dpll Ex20
+
+
 
 end Exs
 

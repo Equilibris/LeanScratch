@@ -42,7 +42,7 @@ def Formula.transform [inst : Inhabited Atom] : Bool → Formula Atom → Dense 
                                (.conj (a.transform .false) (b.transform .false))
   | .false, .iff a b  => .conj (.disj (a.transform .false) (b.transform .false))
                                (.disj (a.transform .true)  (b.transform .true))
-  | .true, .neg v     => v.transform .false
+  | .true,  .neg v    => v.transform .false
   | .false, .neg v    => v.transform .true
 
 mutual
@@ -53,15 +53,12 @@ theorem Formula.transform.tCorrect
   | .f | .t => by by_cases h : base default
     <;> simp_all only [denote, Dense.denote, not_true_eq_false, and_false, not_false_eq_true, and_true, or_false, or_true]
   | .atom v => by simp only [denote, Dense.denote]
-  | .conj a b => by
+  | .conj a b | .disj a b => by
     simp only [denote, Dense.denote]
-    rw [tCorrect a, tCorrect b]
-  | .disj a b => by
-    simp only [denote, Dense.denote]
-    rw [tCorrect a, tCorrect b]
+    simp only [tCorrect a, tCorrect b]
   | .imp a b => by
     simp only [denote, Dense.denote, imp_iff_or_not]
-    rw [fCorrect a, tCorrect b]
+    simp only [fCorrect a, tCorrect b]
   | .iff  a b => by
     simp only [denote, iff_iff_and_or_not_and_not (a := denote base a), Dense.denote, eq_iff_iff]
     rw [fCorrect a, fCorrect b, tCorrect a, tCorrect b]

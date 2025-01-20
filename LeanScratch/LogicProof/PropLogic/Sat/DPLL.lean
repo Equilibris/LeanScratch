@@ -36,6 +36,7 @@ instance : Decidable (fffun x) := .isFalse False.elim
 inductive DpllResult (cs : ClauseSet α)
   | holds ls (v : cs.holds (fup fffun ls))
   | fails (v : ∀ base, ¬cs.holds base)
+deriving Repr
 
 -- Currently im skipping pure literals as theres already so much pain here lol
 def dpll (cs : ClauseSet α) : DpllResult cs :=
