@@ -2,7 +2,7 @@ import LeanScratch.Fin2
 
 inductive Vec (T : Type u) : Nat → Type u
   | nil : Vec T 0
-  | cons (hd : T) (tl : Vec T n) : Vec T (n.succ)
+  | cons (hd : T) (tl : Vec T n) : Vec T n.succ
 
 infixr:20 " %:: " => Vec.cons
 notation:20 "%[]" => Vec.nil
@@ -62,6 +62,4 @@ theorem lookup_append_left {v2 : Vec T k} {v1 : Vec T n}
     dsimp only [Vec.lookup]
     exact lookup_append_left
   | %[], x => by cases x
-
-
 
