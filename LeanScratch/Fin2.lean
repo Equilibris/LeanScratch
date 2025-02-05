@@ -8,8 +8,6 @@ instance Fin2.decEq : DecidableEq (Fin2 n) := fun
     | .isTrue p => .isTrue $ p.rec rfl
     | .isFalse p => .isFalse (p ∘ (Fin2.fs.injEq _ _).mp)
 
-
 instance {v : Fin n} : Fin2.IsLT (v.val) n := ⟨v.isLt⟩
 
 def Fin2.ofFin (fin : Fin n) : Fin2 n := Fin2.ofNat' fin.val
-

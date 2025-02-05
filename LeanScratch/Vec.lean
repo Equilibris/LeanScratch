@@ -7,6 +7,15 @@ inductive Vec (T : Type u) : Nat → Type u
 infixr:20 " %:: " => Vec.cons
 notation:20 "%[]" => Vec.nil
 
+instance [Repr T] : Repr (Vec T n) where
+  reprPrec ls prec := .bracket "%[" (tail prec ls) "]"
+    where
+      tail {z} prec : Vec _ z → _
+        | %[] => .nil
+        | hd %:: tl@(.nil) => .append (reprPrec hd prec) $ tail prec tl
+        | hd %:: tl@(.cons _ _) =>
+          .append (reprPrec hd prec) $ .append ", " $ tail prec tl
+
 syntax "%[" ( term ),+ "]" : term
 -- Unexpanders are pain. Can't be fuqd
 macro_rules
