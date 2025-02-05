@@ -22,16 +22,16 @@ inductive Dense {TNm PNm : Type} (TA : TNm → Nat) (PA : PNm → Nat) : Nat →
   | exis : Dense TA PA n.succ → Dense TA PA n
   | univ : Dense TA PA n.succ → Dense TA PA n
 
-def Dense.conjunctiveTransform : Dense TA PA n → Dense TA PA (n + k) → Dense TA PA (n + k)
-  | .bot x, .bot y  => .bot (.conj (x.bvarShift k) y)
-  | x, .univ y => .univ (conjunctiveTransform (k := k + 1) x y)
-  | x, .exis y => .exis (conjunctiveTransform (k := k + 1) x y)
-  | .exis x, y => match k with
-    | 0 => .exis $ conjunctiveTransform (n := n) (k := 1) y x
-    | k+1 =>
-      /- have : Dense TA PA := sorry -/
-      .exis sorry
-  | .univ x, y => sorry
+/- def Dense.conjunctiveTransform : Dense TA PA n → Dense TA PA (n + k) → Dense TA PA (n + k) -/
+/-   | .bot x, .bot y  => .bot (.conj (x.bvarShift k) y) -/
+/-   | x, .univ y => .univ (conjunctiveTransform (k := k + 1) x y) -/
+/-   | x, .exis y => .exis (conjunctiveTransform (k := k + 1) x y) -/
+/-   | .exis x, y => match k with -/
+/-     | 0 => .exis $ conjunctiveTransform (n := n) (k := 1) y x -/
+/-     | k+1 => -/
+/-       /- have : Dense TA PA := sorry -/ -/
+/-       .exis sorry -/
+/-   | .univ x, y => sorry -/
   /- | .univ x, .univ y => .univ $ conjunctiveTransform x y -/
   /- | y, .univ x | .univ x, y => .univ fun v => conjunctiveTransform (x v) y -/
   /- | y, .exis x | .exis x, y => .exis fun v => conjunctiveTransform (x v) y -/

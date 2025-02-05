@@ -15,7 +15,7 @@ def Formula.Dense.toString [ToString Atom] : (Formula.Dense Atom) → String
     | .atom v => s!"{v}"
     | .negAtom v => s!"¬{v}"
     | .conj a b => s!"({a.toString}) ∧ ({b.toString})"
-    | .disj a b => s!"({a.toString}) ∧ ({b.toString})"
+    | .disj a b => s!"({a.toString}) ∨ ({b.toString})"
 
 instance [ToString Atom] : ToString (Formula.Dense Atom) := ⟨Formula.Dense.toString⟩
 

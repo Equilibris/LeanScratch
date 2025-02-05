@@ -71,11 +71,11 @@ def Formula.denote (v : Valuation TA PA n) : Formula TA PA n → Prop
   | .univ b => ∀ x, b.denote (v.assign x)
 
 def Term.toHoAS.correct
-    {f : Term TA (0 + n)} {ls : Vec (Term TA 0) n}
+    {f : Term TA (0 + n)} {ls : Vec (Term TA (0 + 0)) n}
 
     {heq : HEq ls $ ls.map (Valuation.mk interp (%[])).eval}
 
-    : FOL.Valuation.eval ⟨interp⟩ (f.substAll ls).toHoAS
+    : FOL.Valuation.eval ⟨interp⟩ (f.substAll 0 ls).toHoAS
     = Valuation.eval ⟨interp, ls'⟩ f :=
   match f with
   | .var _ => by

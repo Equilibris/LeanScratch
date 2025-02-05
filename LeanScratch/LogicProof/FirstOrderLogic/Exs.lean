@@ -219,6 +219,6 @@ def pb : Sequent [.exis λ v => .disj (P v) (Q v)] [.exis P, .exis Q] :=
 -- Took me some time to get this as I really annoyingly think very
 -- constructively. Would be nice to talk about this in a supo
 def pc : Sequent [] [.exis λ z => .imp (P z) (.conj (P a) (P b))] :=
-  .cR $ .exisR b $ .impR $ .wR $ .exisR a $ .impR $ .conjR .triv $ .wL .triv
+  .cR $ .exisR b $ .impR $ .wR $ .exisR a $ .impR $ .onjR .triv $ .wL .triv
 
 end Ex19
