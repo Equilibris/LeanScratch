@@ -1,44 +1,13 @@
-import LeanScratch.Vec
-import LeanScratch.Fin2
+import LeanScratch.Computation.RegTree
 
 namespace Comp
 
-inductive RegTree
-  | lf (n : Nat)
-  | br (l r : RegTree)
-
-abbrev RegTree.toStore : RegTree → Type
-  | .lf n => Vec Nat n
-  | .br l r => l.toStore × r.toStore
-
-def Vec.zero {n} : Vec Nat n :=
-  match n with
-  | 0 => %[]
-  | _+1 => 0 %::zero
-
-def RegTree.toStore.zero {r : RegTree} : r.toStore :=
-  match r with
-  | .lf _ => Vec.zero
-  | .br _ _ => ⟨zero, zero⟩
-
-instance {r : RegTree} : Repr r.toStore where
-  reprPrec v _ := f v
-    where
-      f {r : RegTree} (v : r.toStore) : Std.Format := match r with
-      | .lf _ => repr v
-      | .br _ _ => .bracket "⟨" (f v.fst ++ ", " ++ f v.snd) "⟩"
-
-abbrev RegTree.toIdx : RegTree → Type
-  | .lf n => Fin2 n
-  | .br l r => l.toIdx ⊕ r.toIdx
-
--- Observation: any sequence of inc steps can be compressed into one large multi-reg inc
 inductive RegMachine.Ins (r : RegTree) (L : Type)
   | inc (r : r.toIdx) (l : L)
   | dec (r : r.toIdx) (nzdest zdest : L)
   | hlt
 
-def RegMachine (r : RegTree) (L : Type) := L → RegMachine.Ins r L
+def RegMachine (r : RegTree) (L : Type) [Fintype L] := L → RegMachine.Ins r L
 
 namespace RegMachine
 
@@ -47,7 +16,7 @@ structure Config (r : RegTree) (L : Type) :=
   state : L
 deriving Repr
 
-variable (machine : RegMachine r L)
+variable [Fintype L] (machine : RegMachine r L)
 
 def inc_vec {r} : Fin2 r → Vec Nat r → Vec Nat r
   | .fz, hd %:: tl => (hd + 1) %:: tl
@@ -114,13 +83,13 @@ theorem step
   refine ⟨w.succ, ?_⟩
   simp only [Config.step_n, x, Option.some_bind, hb]
 
-def trans {m} : StepsTo m a b → StepsTo m b c → StepsTo m a c
+def trans {m : RegMachine _ L} : StepsTo m a b → StepsTo m b c → StepsTo m a c
   | ⟨w₁, p₁⟩, ⟨w₂, p₂⟩ =>
     ⟨w₂ + w₁, by simp only [Config.step_n.add, p₁, Option.some_bind, p₂] ⟩
 
 instance {m : RegMachine r L} : Trans (StepsTo m) (StepsTo m) (StepsTo m) := ⟨trans⟩
 
-def refl : StepsTo machien a a := ⟨0, rfl⟩
+def refl : StepsTo machine a a := ⟨0, rfl⟩
 
 end StepsTo
 
@@ -130,7 +99,7 @@ def TW (start term : Config r L) : Prop :=
 
 namespace TW
 
-def trans {m} : StepsTo m a b → TW m b c → TW m a c
+def trans {m : RegMachine _ L} : StepsTo m a b → TW m b c → TW m a c
   | ⟨w₁, p₁⟩, ⟨w₂, p₂, p₃⟩ =>
     ⟨w₂ + w₁, by simp [Config.step_n.add, p₁, p₂, p₃]⟩
 
@@ -167,7 +136,25 @@ macro "drive" "StepsTo" : tactic => `(tactic|
 /-   apply RegMachine.TW_drive_lemma _ $term rfl -/
 /- }) -/
 
-class Computable (f : Vec Nat ina → Vec Nat outa) : Prop :=
-  computable : ∃ L r, ∃ m : RegMachine (.br (.lf outa) $ .br (.lf ina) r) L,
-    ∃ starts, ∀ inp : Vec Nat ina, ∃ e ends, m.TW
-      ⟨⟨.zero, ⟨inp, .zero⟩⟩, starts⟩ ⟨⟨f inp, e⟩, ends⟩
+class Computable (f : Vec Nat ina → Vec Nat outa) where
+  {L : _} {r : _} [inst : Fintype L]
+  (m : RegMachine (.br (.lf outa) $ .br (.lf ina) r) L)
+  (startins : _)
+  (p : ∀ inp, ∃ eregs endins, m.TW
+      ⟨⟨.zero, ⟨inp, .zero⟩⟩, startins⟩ ⟨⟨f inp, eregs⟩, endins⟩)
+
+attribute [instance] Computable.inst
+
+structure Pfn (n m : Nat) where
+  carrier : Vec Nat n → Vec Nat m → Prop
+  nomulti : ∀ x y z, carrier x y → carrier x z → y = z
+
+class Pfn.Computable (f : Pfn ina outa) where
+  {L : _} {r : _} [inst : Fintype L]
+  (m : RegMachine (.br (.lf outa) $ .br (.lf ina) r) L)
+  (startins : _)
+  (proof : ∀ inp out, ∃ eregs endins, f.carrier inp out
+    ↔ m.TW ⟨⟨.zero, ⟨inp, .zero⟩⟩, startins⟩ ⟨⟨out, eregs⟩, endins⟩)
+
+attribute [instance] Pfn.Computable.inst
+

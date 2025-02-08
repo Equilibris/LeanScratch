@@ -2,6 +2,8 @@ import LeanScratch.Computation.RegMachine
 
 namespace Comp
 
+section Q1
+
 def addf : Vec Nat 2 → Vec Nat 1 := fun | %[a, b] => %[a + b]
 
 namespace addf
@@ -44,7 +46,7 @@ theorem prog.term : prog.TW ⟨⟨%[n], ⟨%[x, y], %[]⟩⟩, 0⟩ ⟨⟨%[n + 
   drive TW
 
 instance computable : Computable addf :=
-  ⟨_, _, prog, 0,
+  ⟨prog, 0,
     fun | %[x, y] => ⟨.zero, 4, by
       simp only [addf]
       rw [←Nat.zero_add (x + y), ←Nat.add_assoc]
@@ -72,7 +74,7 @@ theorem prog.term : prog.TW ⟨⟨%[n], ⟨%[x, y], %[]⟩⟩, 0⟩ ⟨⟨%[n + 
 
 
 instance computable : Computable projf :=
-  ⟨_, _, prog, 0,
+  ⟨prog, 0,
     fun | %[x, y] => ⟨⟨%[0, y], %[]⟩, 2, by
       simp only [projf]
       nth_rw 2 [←Nat.zero_add x]
@@ -98,7 +100,7 @@ theorem prog.term : (prog n₁).TW ⟨⟨%[n₂], ⟨%[y], %[]⟩⟩, ⟨k, p⟩
   exact RegMachine.TW.refl _ (by rfl)
 
 instance computable n : Computable (constf n) :=
-  ⟨_, _, prog n, ⟨n, by omega⟩,
+  ⟨prog n, ⟨n, by omega⟩,
     fun | %[z] => ⟨⟨%[z], %[]⟩, ⟨0, Nat.zero_lt_succ _⟩, by
       simp only [constf]
       -- nth_rw breaks
@@ -146,7 +148,7 @@ theorem prog.term : prog.TW ⟨⟨%[n], ⟨%[x, y], %[]⟩⟩, 0⟩ ⟨⟨%[n + 
   drive TW
 
 instance computable : Computable subf :=
-  ⟨_, _, prog, 0, fun %[x, y] => ⟨.zero, 4, by
+  ⟨prog, 0, fun %[x, y] => ⟨.zero, 4, by
     simp only [Fin.isValue, subf]
     rw [←Nat.zero_add (x - y)]
     exact prog.term⟩⟩
@@ -163,6 +165,16 @@ inductive DivSteps
   | sub   : Fin 3 → DivSteps
   | exit  : Fin 5 → DivSteps
   | hlt   : DivSteps
+deriving DecidableEq
+
+instance : Fintype DivSteps where
+  elems :=
+    Fintype.elems.map ⟨DivSteps.check, fun _ _ => (DivSteps.check.injEq _ _).mp⟩ ∪
+    Fintype.elems.map ⟨DivSteps.copy,  fun _ _ => (DivSteps.copy.injEq _ _).mp⟩ ∪
+    Fintype.elems.map ⟨DivSteps.sub,   fun _ _ => (DivSteps.sub.injEq _ _).mp⟩ ∪
+    Fintype.elems.map ⟨DivSteps.exit,  fun _ _ => (DivSteps.exit.injEq _ _).mp⟩ ∪
+    {.hlt}
+  complete := fun x => by cases x <;> simp [Fintype.complete]
 
 /- out | num | denom | scratch -/
 def prog : RegMachine (.br (.lf 2) (.br (.lf 2) (.lf 2))) DivSteps :=
@@ -318,7 +330,7 @@ theorem prog.term : prog.TW
     exact prog.nz
 
 instance computable : Computable divmodf :=
-  ⟨_, _, prog, .check 0, fun %[_, _] => ⟨.zero, .hlt, prog.term⟩⟩
+  ⟨prog, .check 0, fun %[_, _] => ⟨.zero, .hlt, prog.term⟩⟩
 
 end divmodf
 
@@ -332,6 +344,14 @@ inductive ExpSteps
   | mvo : Fin 2 → ExpSteps
   | dbl : Fin 3 → ExpSteps
   | hlt
+deriving DecidableEq
+
+instance : Fintype ExpSteps where
+  elems :=
+    Fintype.elems.map ⟨ExpSteps.mvo, fun _ _ => (ExpSteps.mvo.injEq _ _).mp⟩ ∪
+    Fintype.elems.map ⟨ExpSteps.dbl, fun _ _ => (ExpSteps.dbl.injEq _ _).mp⟩ ∪
+    {.hlt, .init, .cond}
+  complete := fun x => by cases x <;> simp [Fintype.complete]
 
 def prog : RegMachine (.br (.lf 1) (.br (.lf 1) (.lf 1))) ExpSteps :=
   let out   := .inl        $ .fz
@@ -404,7 +424,7 @@ def prog.term : prog.TW
   exact prog.body
 
 instance computable : Computable exp2 :=
-  ⟨_, _, prog, .init, fun %[_] => ⟨.zero, .hlt, prog.term⟩⟩
+  ⟨prog, .init, fun %[_] => ⟨.zero, .hlt, prog.term⟩⟩
 
 end exp2
 
@@ -413,4 +433,174 @@ end exp2
 -- of programs and then transforming these in a certian way alowing for
 -- sub-programs to be encoded and so on.
 
+-- I started work on this rather than the logarithm task as ive done so many already
+
+end Q1
+
+namespace Q2
+
+/-
+  We simply build programs with dead-code in the following way:
+  - Take n decrement steps on the output register,
+  - Continue with original program.
+-/
+
+-- Parameter for program generation
+variable (n : Nat)
+
+-- Instance to inherit from
+variable {f : Pfn 1 1} [compInst : Pfn.Computable f] [decEq : DecidableEq compInst.L]
+
+inductive ProgSteps
+  | src : compInst.L → ProgSteps
+  | new : Fin n.succ → ProgSteps
+
+instance {n} : DecidableEq (ProgSteps n (compInst := compInst)) := fun
+  | .src a, .src b =>
+    match decEq a b with
+    | .isTrue p => p.rec $ .isTrue rfl
+    | .isFalse p => .isFalse (p ∘ (ProgSteps.src.injEq _ _).mp)
+  | .new a, .new b => 
+    if h : a = b then h.rec $ .isTrue rfl
+    else .isFalse (h ∘ (ProgSteps.new.injEq _ _).mp)
+  | .src a, .new b | .new a, .src b => .isFalse ProgSteps.noConfusion
+
+instance : Fintype (ProgSteps n (compInst := compInst)) where
+  elems :=
+    Fintype.elems.map ⟨ProgSteps.src, fun _ _ => (ProgSteps.src.injEq _ _).mp⟩ ∪
+    Fintype.elems.map ⟨ProgSteps.new, fun _ _ => (ProgSteps.new.injEq _ _).mp⟩
+  complete := fun x => by cases x <;> simp [Fintype.complete]
+
+def prog : RegMachine (.br (.lf 1) (.br (.lf 1) compInst.r)) (ProgSteps n (compInst := compInst))
+  | .src v => match compInst.m v with
+    | .hlt => .hlt
+    | .inc r next => .inc r (.src next)
+    | .dec r l1 l2 => .dec r (.src l1) (.src l2)
+  | .new 0 =>
+    .dec
+      (.inl $ .fz)
+      (.src compInst.startins)
+      (.src compInst.startins)
+  | .new ⟨n+1, p⟩ =>
+    .dec
+      (.inl $ .fz)
+      (.new ⟨n, Nat.lt_of_succ_lt p⟩)
+      (.new ⟨n, Nat.lt_of_succ_lt p⟩)
+
+-- This is quite straight forward but sadly i didnt have time to do it
+example : Pfn.Computable f := sorry
+
+end Q2
+
+namespace Q3
+
+inductive ProgSteps
+  | exit
+  | halt
+  | setup : Fin 2 → ProgSteps
+  | mov   : Fin 2 → ProgSteps
+  | half  : Fin 3 → ProgSteps
+  | inca
+deriving DecidableEq, Repr
+
+instance : Fintype ProgSteps where
+  elems :=
+    Fintype.elems.map ⟨.mov, fun _ _ => (ProgSteps.mov.injEq _ _).mp⟩ ∪
+    Fintype.elems.map ⟨.half, fun _ _ => (ProgSteps.half.injEq _ _).mp⟩ ∪
+    Fintype.elems.map ⟨.setup, fun _ _ => (ProgSteps.setup.injEq _ _).mp⟩ ∪
+    {.exit, .inca, .halt}
+  complete := fun x => by cases x <;> simp [Fintype.complete]
+
+def prog : RegMachine (.lf 3) ProgSteps :=
+  let a := .fz
+  let s := .fs $ .fz
+  let z := .fs $ .fs $ .fz
+  fun
+  | .exit | .halt => .hlt
+  | .setup 0 => .dec a (.setup 0) (.setup 1)
+  | .setup 1 => .dec s (.mov   0) (.exit)
+  | .mov   0 => .inc z (.mov   1)
+  | .mov   1 => .dec s (.mov   0) (.half  0)
+  | .half  0 => .dec z (.half  1) (.inca)
+  | .half  1 => .dec z (.half  2) (.halt)
+  | .half  2 => .inc s (.half  0)
+  | .inca    => .inc a (.mov   1)
+
+def prog.mov : prog.StepsTo
+    ⟨%[a, s, z], .mov 0⟩
+    ⟨%[a, 0, z + s + 1], .half 0⟩ := by
+  induction s generalizing z
+  · drive StepsTo
+  case succ s ih =>
+    nth_rw 3 [Nat.add_comm _ 1]
+    rw [←Nat.add_assoc]
+    apply RegMachine.StepsTo.step _ (by rfl)
+    apply RegMachine.StepsTo.step _ (by rfl)
+    exact ih
+
+def prog.mov' : prog.StepsTo
+    ⟨%[a, s, z], .mov 1⟩
+    ⟨%[a, 0, z + s], .half 0⟩ := by
+  induction s generalizing z
+  · drive StepsTo
+  case succ s ih =>
+    nth_rw 2 [Nat.add_comm _ 1]
+    rw [←Nat.add_assoc]
+    drive StepsTo
+    exact ih
+
+def prog.loop_even : prog.StepsTo
+    ⟨%[a, s    , z + z], .half 0⟩
+    ⟨%[a, s + z, 0    ], .inca⟩ := by
+  induction z generalizing s
+  · drive StepsTo
+  case succ z ih =>
+    rw [Nat.add_assoc, Nat.add_comm _ (z + 1), ←Nat.add_assoc, ←Nat.add_assoc]
+    drive StepsTo
+    dsimp [RegMachine.inc, RegMachine.inc_vec]
+    nth_rw 2 [Nat.add_comm _ 1]
+    rw [←Nat.add_assoc]
+    exact ih
+def prog.loop_odd : prog.TW
+    ⟨%[a, s    , z + z + 1], .half 0⟩
+    ⟨%[a, s + z, 0        ], .halt⟩ := by
+  induction z generalizing s
+  · drive TW
+  case succ z ih =>
+    rw [←Nat.add_assoc, Nat.add_comm (z + 1), ←Nat.add_assoc]-- Nat.add_comm _ (z + 1), ←Nat.add_assoc, ←Nat.add_assoc]
+    apply RegMachine.TW.step _ (by rfl)
+    apply RegMachine.TW.step _ (by rfl)
+    apply RegMachine.TW.step _ (by rfl)
+    dsimp [RegMachine.inc, RegMachine.inc_vec]
+    nth_rw 3 [Nat.add_comm _ 1]
+    rw [←Nat.add_assoc]
+    exact ih
+
+def prog.full_loop_even : prog.StepsTo
+    ⟨%[a    , s, z + z], .half 0⟩
+    ⟨%[a + 1, 0, s + z], .half 0⟩ := by
+  apply RegMachine.StepsTo.trans prog.loop_even
+  drive StepsTo
+  nth_rw 2 [←Nat.zero_add (s + z)]
+  exact prog.mov'
+
+def prog.nz : prog.TW
+    ⟨%[out, 0, (y * 2 + 1) * 2 ^ a], .half 0⟩
+    ⟨%[out + a, y, 0], .halt⟩ := by
+  induction a generalizing out
+  · rw [pow_zero, mul_one, add_zero, Nat.mul_two]
+    nth_rw 3 [←Nat.zero_add y]
+    exact prog.loop_odd
+  case succ a ih =>
+    rw [Nat.pow_succ, ←Nat.mul_assoc, Nat.mul_two]
+    apply RegMachine.TW.trans prog.full_loop_even
+    rw [Nat.zero_add, Nat.add_comm a 1, ←Nat.add_assoc]
+    exact ih
+
+/-
+  The program is the inverse of the pair-coding functions we were given
+  in lectures. This stores the two numbers in a and s respectrively.
+-/
+
+end Q3
 
