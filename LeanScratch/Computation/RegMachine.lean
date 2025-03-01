@@ -7,7 +7,7 @@ inductive RegMachine.Ins (r : RegTree) (L : Type)
   | dec (r : r.toIdx) (nzdest zdest : L)
   | hlt
 
-def RegMachine (r : RegTree) (L : Type) [Fintype L] := L → RegMachine.Ins r L
+def RegMachine (r : RegTree) (L : Type) [Fintype2 L] := L → RegMachine.Ins r L
 
 namespace RegMachine
 
@@ -16,16 +16,33 @@ structure Config (r : RegTree) (L : Type) :=
   state : L
 deriving Repr
 
-variable [Fintype L] (machine : RegMachine r L)
+variable [Fintype2 L] (machine : RegMachine r L)
 
 def inc_vec {r} : Fin2 r → Vec Nat r → Vec Nat r
   | .fz, hd %:: tl => (hd + 1) %:: tl
   | .fs n, hd %:: tl => hd %:: inc_vec n tl
 
+theorem inc_vec.eq_set {idx : Fin2 n} {s : Vec Nat n}
+    : inc_vec idx s = s.set idx (s.lookup idx |>.succ) :=
+  match idx, s with
+  | .fs _, hd %:: _ => by
+    dsimp [inc_vec, Vec.set, Vec.lookup]
+    rw [eq_set]
+  | .fz,   hd %:: _ => rfl
+
 def inc : {r : RegTree} → r.toIdx → r.toStore → r.toStore
   | .lf _, idx, str => inc_vec idx str
   | .br _ _, .inl search, ⟨a, b⟩ => ⟨inc search a, b⟩
   | .br _ _, .inr search, ⟨a, b⟩ => ⟨a, inc search b⟩
+
+theorem inc.eq_set {r : RegTree} {idx : r.toIdx} {s : r.toStore}
+    : inc idx s = r.set s idx (r.lookup s idx |>.succ) :=
+  match r, s, idx with
+  | .lf _, s, idx => inc_vec.eq_set
+  | .br _ _, ⟨l, r⟩, .inl idx
+  | .br _ _, ⟨l, r⟩, .inr idx => by
+    dsimp [inc, RegTree.set, RegTree.lookup]
+    rw [←eq_set]
 
 def dec_vec {r} : Fin2 r → Vec Nat r → Option (Vec Nat r)
   | .fz, 0 %:: tl => .none
@@ -51,6 +68,8 @@ def Config.step_n (state : Config r L) : Nat → Option (Config r L)
   | 0 => state
   | n+1 => (state.step machine).bind (step_n · n)
 
+@[simp]
+theorem Config.step_n.zero {s : Config r L} : s.step_n m 0 = some s := rfl
 
 def Config.step_n.add {start : Config r L} : start.step_n machine (a + b) = (start.step_n machine b).bind (·.step_n machine a) :=
   match b with
@@ -137,7 +156,7 @@ macro "drive" "StepsTo" : tactic => `(tactic|
 /- }) -/
 
 class Computable (f : Vec Nat ina → Vec Nat outa) where
-  {L : _} {r : _} [inst : Fintype L]
+  {L : _} {r : _} [inst : Fintype2 L]
   (m : RegMachine (.br (.lf outa) $ .br (.lf ina) r) L)
   (startins : _)
   (p : ∀ inp, ∃ eregs endins, m.TW
@@ -150,7 +169,7 @@ structure Pfn (n m : Nat) where
   nomulti : ∀ x y z, carrier x y → carrier x z → y = z
 
 class Pfn.Computable (f : Pfn ina outa) where
-  {L : _} {r : _} [inst : Fintype L]
+  {L : _} {r : _} [inst : Fintype2 L]
   (m : RegMachine (.br (.lf outa) $ .br (.lf ina) r) L)
   (startins : _)
   (proof : ∀ inp out, ∃ eregs endins, f.carrier inp out

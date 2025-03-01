@@ -167,14 +167,25 @@ inductive DivSteps
   | hlt   : DivSteps
 deriving DecidableEq
 
-instance : Fintype DivSteps where
+instance : Fintype2 DivSteps where
   elems :=
-    Fintype.elems.map ⟨DivSteps.check, fun _ _ => (DivSteps.check.injEq _ _).mp⟩ ∪
-    Fintype.elems.map ⟨DivSteps.copy,  fun _ _ => (DivSteps.copy.injEq _ _).mp⟩ ∪
-    Fintype.elems.map ⟨DivSteps.sub,   fun _ _ => (DivSteps.sub.injEq _ _).mp⟩ ∪
-    Fintype.elems.map ⟨DivSteps.exit,  fun _ _ => (DivSteps.exit.injEq _ _).mp⟩ ∪
-    {.hlt}
-  complete := fun x => by cases x <;> simp [Fintype.complete]
+    .hlt :: (Fintype2.elems.map DivSteps.check ++
+    Fintype2.elems.map DivSteps.copy ++
+    Fintype2.elems.map DivSteps.sub ++
+    Fintype2.elems.map DivSteps.exit) 
+  complete := fun x => by cases x <;> simp [Fintype2.complete]
+  nodup := .cons (by simp) (by
+    simp only [List.append_assoc, List.nodup_append, List.Disjoint, List.mem_map, imp_false,
+      not_exists, not_and, forall_exists_index, and_imp, forall_apply_eq_imp_iff₂,
+      not_false_eq_true, implies_true, and_true, List.mem_append, not_or, and_self]
+    refine ⟨?_, ?_, ?_, ?_⟩
+    <;> apply List.Nodup.map
+    <;> try (exact Fintype2.nodup)
+    · exact @DivSteps.check.inj
+    · exact @DivSteps.copy.inj
+    · exact @DivSteps.sub.inj
+    · exact @DivSteps.exit.inj
+    )
 
 /- out | num | denom | scratch -/
 def prog : RegMachine (.br (.lf 2) (.br (.lf 2) (.lf 2))) DivSteps :=
@@ -346,12 +357,22 @@ inductive ExpSteps
   | hlt
 deriving DecidableEq
 
-instance : Fintype ExpSteps where
+instance : Fintype2 ExpSteps where
   elems :=
-    Fintype.elems.map ⟨ExpSteps.mvo, fun _ _ => (ExpSteps.mvo.injEq _ _).mp⟩ ∪
-    Fintype.elems.map ⟨ExpSteps.dbl, fun _ _ => (ExpSteps.dbl.injEq _ _).mp⟩ ∪
-    {.hlt, .init, .cond}
-  complete := fun x => by cases x <;> simp [Fintype.complete]
+    Fintype2.elems.map ExpSteps.mvo ++
+    Fintype2.elems.map ExpSteps.dbl ++
+    [.hlt, .init, .cond]
+  complete := fun x => by cases x <;> simp [Fintype2.complete]
+  nodup := by
+    simp only [List.append_assoc, List.nodup_append, List.nodup_cons, List.mem_cons,
+      List.mem_singleton, or_self, not_false_eq_true, List.not_mem_nil, List.nodup_nil, and_self,
+      List.Disjoint, List.mem_map, imp_false, not_or, forall_exists_index, and_imp,
+      forall_apply_eq_imp_iff₂, implies_true, and_true, List.mem_append, not_exists, not_and]
+    refine ⟨?_, ?_⟩
+    <;> apply List.Nodup.map
+    <;> try (exact Fintype2.nodup)
+    exact @ExpSteps.mvo.inj
+    exact @ExpSteps.dbl.inj
 
 def prog : RegMachine (.br (.lf 1) (.br (.lf 1) (.lf 1))) ExpSteps :=
   let out   := .inl        $ .fz
@@ -465,11 +486,20 @@ instance {n} : DecidableEq (ProgSteps n (compInst := compInst)) := fun
     else .isFalse (h ∘ (ProgSteps.new.injEq _ _).mp)
   | .src a, .new b | .new a, .src b => .isFalse ProgSteps.noConfusion
 
-instance : Fintype (ProgSteps n (compInst := compInst)) where
+instance : Fintype2 (ProgSteps n (compInst := compInst)) where
   elems :=
-    Fintype.elems.map ⟨ProgSteps.src, fun _ _ => (ProgSteps.src.injEq _ _).mp⟩ ∪
-    Fintype.elems.map ⟨ProgSteps.new, fun _ _ => (ProgSteps.new.injEq _ _).mp⟩
-  complete := fun x => by cases x <;> simp [Fintype.complete]
+    Fintype2.elems.map ProgSteps.src ++
+    Fintype2.elems.map ProgSteps.new
+  complete := fun x => by cases x <;> simp [Fintype2.complete]
+  nodup := by
+    simp only [Nat.succ_eq_add_one, List.nodup_append, List.Disjoint, List.mem_map, imp_false,
+      not_exists, not_and, forall_exists_index, and_imp, forall_apply_eq_imp_iff₂,
+      not_false_eq_true, implies_true, and_true]
+    refine ⟨?_, ?_⟩
+    <;> apply List.Nodup.map
+    <;> try (exact Fintype2.nodup)
+    · exact @ProgSteps.src.inj _ _ _
+    · exact @ProgSteps.new.inj _ _ _
 
 def prog : RegMachine (.br (.lf 1) (.br (.lf 1) compInst.r)) (ProgSteps n (compInst := compInst))
   | .src v => match compInst.m v with
@@ -503,13 +533,25 @@ inductive ProgSteps
   | inca
 deriving DecidableEq, Repr
 
-instance : Fintype ProgSteps where
+instance : Fintype2 ProgSteps where
   elems :=
-    Fintype.elems.map ⟨.mov, fun _ _ => (ProgSteps.mov.injEq _ _).mp⟩ ∪
-    Fintype.elems.map ⟨.half, fun _ _ => (ProgSteps.half.injEq _ _).mp⟩ ∪
-    Fintype.elems.map ⟨.setup, fun _ _ => (ProgSteps.setup.injEq _ _).mp⟩ ∪
-    {.exit, .inca, .halt}
-  complete := fun x => by cases x <;> simp [Fintype.complete]
+    Fintype2.elems.map .mov ++
+    Fintype2.elems.map .half ++
+    Fintype2.elems.map .setup ++
+    [ .exit, .inca, .halt ]
+  complete := fun x => by cases x <;> simp [Fintype2.complete]
+  nodup := by
+    simp only [List.append_assoc, List.nodup_append, List.nodup_cons, List.mem_cons,
+      List.mem_singleton, or_self, not_false_eq_true, List.not_mem_nil, List.nodup_nil, and_self,
+      List.Disjoint, List.mem_map, imp_false, not_or, forall_exists_index, and_imp,
+      forall_apply_eq_imp_iff₂, implies_true, and_true, List.mem_append, not_exists, not_and]
+    refine ⟨?_, ?_, ?_⟩
+    <;> apply List.Nodup.map
+    <;> try (exact Fintype2.nodup)
+    exact @ProgSteps.mov.inj
+    exact @ProgSteps.half.inj
+    exact @ProgSteps.setup.inj
+
 
 def prog : RegMachine (.lf 3) ProgSteps :=
   let a := .fz
