@@ -78,6 +78,7 @@ def set (r : RegTree) (store : r.toStore) (idx : r.toIdx) (v : Nat) : r.toStore 
   | .br l _, .inl idx, ⟨sl, sr⟩ => ⟨l.set sl idx v, sr⟩
   | .br _ r, .inr idx, ⟨sl, sr⟩ => ⟨sl, r.set sr idx v⟩
 
+@[simp]
 theorem set.overwrite {r : RegTree} {store : r.toStore} {idx : r.toIdx}
     : r.set (r.set store idx y) idx x = r.set store idx x :=
   match r, idx with
@@ -97,17 +98,44 @@ theorem set.comm_ne {r : RegTree} {idx jdx : r.toIdx} {s1 : r.toStore} (hNe : id
     rw [RegTree.set.comm_ne]
     exact hNe ∘ (·.rec rfl)
 
+@[simp]
+theorem lookup_set_ne {r : RegTree} {idx jdx : r.toIdx} {s1 : r.toStore} (hNe : idx ≠ jdx)
+    : r.lookup (r.set s1 idx sv) jdx = r.lookup s1 jdx :=
+  match r, idx, jdx with
+  | .lf _, idx, jdx => Vec.lookup_set_ne hNe
+
+  | .br _ _, .inr idx, .inl jdx
+  | .br _ _, .inl idx, .inr jdx => rfl
+
+  | .br _ _, .inl idx, .inl jdx
+  | .br _ _, .inr idx, .inr jdx => by
+    dsimp [lookup, set]
+    exact lookup_set_ne (hNe $ ·.rec rfl)
+
+@[simp]
+theorem lookup_set_eq {r : RegTree} {idx : r.toIdx} {s1 : r.toStore}
+    : r.lookup (r.set s1 idx sv) idx = sv :=
+  match r, idx with
+  | .lf _, idx => Vec.lookup_set_eq
+  | .br _ _, .inl _ 
+  | .br _ _, .inr _ => by
+    dsimp [lookup, set]
+    exact lookup_set_eq
+
 def set_many (r : RegTree) (store : r.toStore) : List (r.toIdx × Nat) → r.toStore
   | [] => store
   | ⟨idx, x⟩ :: tl => r.set (r.set_many store tl) idx x
 
-def set_many.stalin [DecidableEq T] : List (T × V) → List (T × V)
+namespace set_many
+
+-- Closer to the one-child policy (what happend to monday) than stalin
+def stalin [DecidableEq T] : List (T × V) → List (T × V)
   | [] => []
   | ⟨k, v⟩ :: tl => ⟨k, v⟩ :: ((set_many.stalin tl).filter $ (· ≠ k) ∘ Prod.fst)
 
--- Closer to the one-child policy (what happend to monday) than stalin
-theorem set_many.stalin.nodup
-    [DecidableEq T] {ls : List (T × V)}
+namespace stalin
+
+theorem nodup [DecidableEq T] {ls : List (T × V)}
     : (set_many.stalin ls).map Prod.fst |>.Nodup :=
   match ls with
   | [] => .nil
@@ -115,7 +143,7 @@ theorem set_many.stalin.nodup
     (by simp [←List.filter_map, List.mem_filter])
     (by simp [←List.filter_map, List.Nodup.filter, nodup])
 
-theorem set_many.stalin.lem {r : RegTree} {s : r.toStore} (k : r.toIdx) (v : ℕ)
+theorem lem {r : RegTree} {s : r.toStore} (k : r.toIdx) (v : ℕ)
     (sub : List (r.toIdx × ℕ))
     : r.set (r.set_many s (List.filter ((fun x ↦ decide ¬x = k) ∘ Prod.fst) sub)) k v =
       r.set (r.set_many s sub) k v := by
@@ -128,13 +156,15 @@ theorem set_many.stalin.lem {r : RegTree} {s : r.toStore} (k : r.toIdx) (v : ℕ
     · rw [RegTree.set.comm_ne h, RegTree.set.comm_ne h, ih]
     · rw [h, RegTree.set.overwrite, ih]
 
-theorem set_many.stalin.sm
+theorem sm
     {r : RegTree} {s : r.toStore}
     (ls : List (r.toIdx × Nat))
     : r.set_many s ls = r.set_many s (stalin ls) :=
   match ls with
   | [] => rfl
   | ⟨k, v⟩ :: tl => by dsimp [set_many, stalin]; rw [lem, sm]
+
+end stalin
 
 /- theorem set_many.stalin.nochange -/
 /-     {ls : List (T × U)} -/
@@ -143,7 +173,7 @@ theorem set_many.stalin.sm
 /-     : set_many.stalin ls = ls := -/
 /-   sorry -/
 
-theorem set_many.comp {r : RegTree} {base : r.toStore} {l₁ l₂ : List (r.toIdx × Nat)} :
+theorem comp {r : RegTree} {base : r.toStore} {l₁ l₂ : List (r.toIdx × Nat)} :
     r.set_many (r.set_many base l₁) l₂ = r.set_many base (l₂ ++ l₁) :=
   match l₂ with
   | [] => rfl
@@ -151,7 +181,7 @@ theorem set_many.comp {r : RegTree} {base : r.toStore} {l₁ l₂ : List (r.toId
     dsimp [set_many]
     rw [set_many.comp]
 
-def set_many.perm {r : RegTree} {l₁ l₂ : List (r.toIdx × Nat)}
+theorem perm {r : RegTree} {l₁ l₂ : List (r.toIdx × Nat)}
     {s : r.toStore}
     (hNoDup : l₁.map Prod.fst |>.Nodup)
     (hPerm : List.Perm l₁ l₂)
@@ -176,6 +206,20 @@ def set_many.perm {r : RegTree} {l₁ l₂ : List (r.toIdx × Nat)}
       _ = _ := iha hNoDup
       _ = _ := ihb $ (List.Perm.nodup_iff $ List.Perm.map _ a).mp hNoDup
   case nil => rfl
+
+end set_many
+
+theorem lookup_set_many_none
+    {r : RegTree} {s1 : r.toStore} {l : List (r.toIdx × ℕ)} {z : r.toIdx}
+    (hNMem : z ∉ l.map Prod.fst)
+    : r.lookup (r.set_many s1 l) z = r.lookup s1 z :=
+  match l with
+  | hd :: tl => by
+    simp only [List.map_cons, List.mem_cons, not_or, set_many] at hNMem ⊢
+    rcases hNMem with ⟨zne, ih⟩
+    rw [lookup_set_ne (zne ∘ Eq.symm)]
+    exact lookup_set_many_none ih
+  | [] => rfl
 
 @[ext]
 def store.ext {r : RegTree} {s1 s2 : r.toStore}

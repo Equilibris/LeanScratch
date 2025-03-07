@@ -1,4 +1,4 @@
-import LeanScratch.Computation.RegTree
+import LeanScratch.Computation.RegMachine.RegTree
 
 namespace Comp
 
@@ -49,10 +49,53 @@ def dec_vec {r} : Fin2 r → Vec Nat r → Option (Vec Nat r)
   | .fz, hd + 1 %:: tl => .some (hd %:: tl)
   | .fs n, hd %:: tl => dec_vec n tl |>.map (.cons hd)
 
+theorem dec_vec.eq_set {idx : Fin2 n} {s : Vec Nat n}
+    (h : dec_vec idx s = some z)
+    : z = s.set idx (s.lookup idx |>.pred) :=
+  match n, s, idx with
+  | _+1, 0   %:: tl, .fz   => Option.noConfusion h
+  | _+1, n+1 %:: tl, .fz   => by simp_all [dec_vec, Vec.set, Vec.lookup]
+  | _+1, hd  %:: tl, .fs _ => by
+    simp_all only [dec_vec, Option.map_eq_some', Vec.set, Vec.lookup]
+    rcases h with ⟨_, ih, rfl⟩
+    exact (Vec.cons.injEq _ _ _ _).mpr ⟨rfl, dec_vec.eq_set ih⟩
+
 def dec : {r : RegTree} → r.toIdx → r.toStore → Option r.toStore
   | .lf _, idx, str => dec_vec idx str
   | .br _ _, .inl search, ⟨a, b⟩ => (dec search a).map (⟨·, b⟩)
   | .br _ _, .inr search, ⟨a, b⟩ => (dec search b).map (⟨a, ·⟩)
+
+def dec.eq_set {r : RegTree} {idx : r.toIdx} {z s : r.toStore}
+    (h : dec idx s = some z)
+    : z = r.set s idx (r.lookup s idx |>.pred) :=
+  match r, idx with
+  | .lf _, idx => dec_vec.eq_set h
+  | .br _ _, .inl _ | .br _ _, .inr _ => by
+    simp_all only [dec, Option.map_eq_some', RegTree.set, RegTree.lookup]
+    rcases h with ⟨_, ih, rfl⟩
+    refine (Prod.mk.injEq _ _ _ _).mpr ⟨?_, ?_⟩
+    any_goals rfl
+    exact dec.eq_set ih
+
+theorem dec_vec_none_iff_lookup_z
+     {idx : Fin2 n} {s : Vec _ _}
+    : (dec_vec idx s = none) ↔ s.lookup idx = 0 :=
+  match idx, s with
+  | .fz,   0 %:: _ | .fz,   n+1 %:: _ => by
+    simp [dec_vec, Vec.lookup]
+  | .fs _, hd %:: _  => by
+    simp only [dec_vec, Option.map_eq_none', Vec.lookup]
+    exact dec_vec_none_iff_lookup_z
+
+theorem dec_none_iff_lookup_z
+    {r : RegTree} {idx : r.toIdx} {s : r.toStore}
+    : (dec idx s = none) ↔ r.lookup s idx = 0 :=
+  match r, idx with
+  | .lf _, idx => dec_vec_none_iff_lookup_z
+  | .br _ _, .inl _
+  | .br _ _, .inr _ => by
+    simp only [dec, Option.map_eq_none', RegTree.lookup]
+    exact dec_none_iff_lookup_z
 
 def Config.step (state : Config r L) : Option $ Config r L :=
   let ⟨regs, state⟩ := state
