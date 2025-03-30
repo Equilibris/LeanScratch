@@ -6,15 +6,15 @@ inductive ListFunctor (α ρ : Type _) : Type _
   | cons (hd : α) (cons : ρ)
 
 namespace ListFunctor
-inductive Crystal {base : Type u} :
+inductive Crystal {α : Type v} {base : Type (max u v)} :
     {n : Nat} →
     {m : Nat} →
-    n.repeat (ListFunctor.{u} α) base →
-    m.repeat (ListFunctor.{u} α) base → Prop where
-  | base  : @Crystal _ _ (0    ) (m + 1) b v
-  | nilS  : @Crystal _ _ (n + 1) (m + 1) .nil .nil
-  | consS : @Crystal _ _ (n    ) (m    ) t₁   t₂ →
-            @Crystal _ _ (n + 1) (m + 1) (.cons h₁ t₁) (.cons h₁ t₂)
+    n.repeat (ListFunctor.{v, max u v} α) base →
+    m.repeat (ListFunctor.{v, max u v} α) base → Prop where
+  | base  :         @Crystal _ _ (0    ) (m + 1) b v
+  | nilS  : n ≤ m → @Crystal _ _ (n + 1) (m + 1) .nil .nil
+  | consS :         @Crystal _ _ (n    ) (m    ) t₁   t₂ →
+                    @Crystal _ _ (n + 1) (m + 1) (.cons h₁ t₁) (.cons h₁ t₂)
 end ListFunctor
 
 structure CoList (α : Type u) where
@@ -25,13 +25,40 @@ structure CoList (α : Type u) where
   -- cryst imples that it always increases except when it has grown to full size
   /- mono : ∀ n, f n < f n.succ -/
 
-  obj : (n : Nat) → (f n).repeat (ListFunctor α) PUnit
+  obj : (n : Nat) → (f n).repeat (ListFunctor α) PUnit.{u + 1}
   cryst : ∀ n, ListFunctor.Crystal (obj n) (obj n.succ)
+
+def ListFunctor.Crystal.mono
+    {α : Type v} {b : Type (max u v)} {n m : Nat}
+    {x : n.repeat (ListFunctor α) b}
+    {y : m.repeat (ListFunctor α) b}
+    (h : ListFunctor.Crystal.{u, v} x y)
+    : n ≤ m :=
+  match n, m with
+  | 0, _+1   => Nat.le_add_left _ _
+  | n+1, m+1 => by
+    apply Nat.add_le_add_right _ 1
+    cases h
+    · assumption
+    · exact mono (by assumption)
+
+def CoList.mono
+    {f : Nat → Nat}
+    {obj : (n : Nat) → (f n).repeat (ListFunctor α) PUnit}
+    (h : ∀ n, ListFunctor.Crystal (obj n) (obj n.succ))
+    (n m : Nat)
+    (hle : n ≤ m)
+    : f n ≤ f m :=
+  match hle with
+  | .refl => .refl
+  | .step (m := m) hle => calc
+    f n ≤ f m := mono h _ _ hle
+    _ ≤ _ := ListFunctor.Crystal.mono $ h _
 
 def CoList.nil : CoList α where
   f     := fun _ => 1
   obj   := fun _ => .nil
-  cryst := fun _ => .nilS
+  cryst := fun _ => .nilS $ Nat.zero_le 0
 
 def CoList.cons (hd : α) : CoList α → CoList α
   | ⟨f, obj, cryst⟩ => {
@@ -54,14 +81,13 @@ def CoList.corec.proof : {n m : ℕ} → n < m →
   | n+1, m+1, hlt => by
     dsimp [corec.impl]
     match gen v with
-    | .nil      => exact .nilS
+    | .nil      => exact .nilS $ Nat.le_of_lt $ Nat.succ_lt_succ_iff.mp hlt
     | .cons _ _ => exact .consS $ corec.proof $ Nat.succ_lt_succ_iff.mp hlt
 
 def CoList.corec (f : ρ → ListFunctor α ρ) (content : ρ) : CoList α where
   f     := (2 ^ ·)
   obj   := fun _ => corec.impl f content
   cryst := (corec.proof $ Nat.pow_lt_pow_of_lt .refl $ Nat.lt_add_one ·)
-
 
 def HEq.dependentRw
     {α : Sort _} {a b : α}
@@ -76,14 +102,14 @@ def HEq.dependentRw
   exact src
 
 /- set_option pp.explicit true in -/
-def CoList.dest (o : CoList.{u} α) : ListFunctor.{u} α (CoList α) :=
+def CoList.dest (o : CoList α) : ListFunctor.{u} α (CoList α) :=
   let ⟨f, o, cryst⟩ := o
   match h₁ : f 0, hv₁ : o 0 with
   | n+1, v   => body f o cryst h₁ v hv₁
   | 0, .unit =>
     match h₂ : f 1, hv₂ : o 1 with
     | 0, .unit => False.elim $ by
-      suffices z : @ListFunctor.Crystal PUnit.{u + 1} α 0 0 PUnit.unit PUnit.unit by
+      suffices z : @ListFunctor.Crystal.{u, u} α PUnit.{u + 1} 0 0 .unit .unit by
         cases z
       apply HEq.dependentRw
         (submotive := (Nat.repeat _ · _))
@@ -98,12 +124,22 @@ def CoList.dest (o : CoList.{u} α) : ListFunctor.{u} α (CoList α) :=
       body (f ∘ Nat.succ) (fun x : Nat => o x.succ) (fun x : Nat => cryst x.succ) h₂ v hv₂
 where
   body {n} f o cryst (h : f 0 = n + 1) v hv :=
-    match v with
+    match hv : v with
     | .nil => .nil
-    | .cons hd tl =>
+    | .cons hd _ =>
       .cons hd ⟨
-        sorry,
-        sorry,
+        (Nat.pred $ f ·),
+        fun x =>
+          have m := mono cryst 0 x (Nat.zero_le x)
+          let this : Nat.repeat (ListFunctor α) (f x) PUnit.{u + 1} → Nat.repeat (ListFunctor α) (f x).pred _ :=
+            match hm : f x with
+            | 0 => False.elim
+              $ Nat.not_succ_le_zero _ $ Eq.trans_le h.symm $ m.trans_eq hm
+            | n+1 => fun x => match x with
+              | .cons _ tl => tl
+              | .nil =>
+                sorry
+          this $ o x,
         sorry
       ⟩
   /-

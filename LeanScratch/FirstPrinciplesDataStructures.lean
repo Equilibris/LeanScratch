@@ -1,10 +1,6 @@
 import Mathlib.Logic.Equiv.Defs
 import Mathlib.Tactic
 
-def nApply (motive : Type u) (functor : Type u → Type u) : Nat → Type u
-  | 0 => motive
-  | n+1 => functor (nApply motive functor n)
-
 inductive ListFunctor (α ρ : Type _) : Type _
   | nil
   | cons (hd : α) (cons : ρ)
@@ -12,8 +8,8 @@ inductive ListFunctor (α ρ : Type _) : Type _
 namespace ListFunctor
 inductive Crystal {base : Type} :
     (n : Nat) →
-    nApply base (ListFunctor α) n →
-    nApply base (ListFunctor α) n.succ → Prop where
+    n.repeat (ListFunctor α) base →
+    n.succ.repeat (ListFunctor α) base → Prop where
   | base  : Crystal 0 b v
   | nilS  : Crystal (n + 1) .nil .nil
   | consS : Crystal n t₁ t₂ →
@@ -21,7 +17,7 @@ inductive Crystal {base : Type} :
 
 namespace Crystal
 def cons
-    {obj : (n : ℕ) → nApply Unit (ListFunctor α) n}
+    {obj : (n : ℕ) → n.repeat (ListFunctor α) Unit}
     (cryst : ∀ (n : ℕ), ListFunctor.Crystal n (obj n) (obj n.succ))
     (h : obj 1 = ListFunctor.cons hd PUnit.unit)
     : (x : ℕ) → ∃ tl, obj x.succ = ListFunctor.cons hd tl
@@ -36,7 +32,7 @@ def cons
     exact ⟨_, rfl⟩
 
 def nil
-    {obj : (n : ℕ) → nApply Unit (ListFunctor α) n}
+    {obj : (n : ℕ) → n.repeat (ListFunctor α) Unit}
     (cryst : ∀ (n : ℕ), ListFunctor.Crystal n (obj n) (obj n.succ))
     (h : obj 1 = .nil)
     : (x : Nat) → obj x.succ = .nil
@@ -51,16 +47,16 @@ def nil
     cases this
 end Crystal
 
-def Tight {α} {x : Nat} : nApply Empty (ListFunctor α) x.succ → Prop :=
-  (¬∃ x, Crystal _ x ·)
+def Tight {α} {x : Nat} (v : x.succ.repeat (ListFunctor α) Empty) : Prop :=
+  ¬Exists (Crystal _ · v)
 end ListFunctor
 
-structure List' (α : Type _) :=
+structure List' (α : Type _) where
   bound : Nat
-  content : nApply Empty (ListFunctor α) bound.succ
+  content : bound.succ.repeat (ListFunctor α) Empty
   tightness : ListFunctor.Tight content
 
-def List'.lift : {n : Nat} → nApply Empty (ListFunctor α) n → List' α
+def List'.lift : {n : Nat} → n.repeat (ListFunctor α) Empty → List' α
   | _+1, .nil => ⟨0, .nil, Empty.elim ∘ Exists.choose⟩
   | n+1, .cons hd tl =>
     let ⟨n, v, tight⟩ := List'.lift tl
@@ -97,16 +93,16 @@ def List'.dest : List' α → ListFunctor α (List' α)
 
 
 structure CoList (α : Type _) where
-  obj : (n : Nat) → nApply Unit (ListFunctor α) n
+  obj : (n : Nat) → n.repeat (ListFunctor α) Unit
   cryst : ∀ n, ListFunctor.Crystal n (obj n) (obj n.succ)
 
 -- This will in the end be the only efficent way to walk the graph sadly, and a bit pathalogically
-def CoList.destN (o : CoList α) : nApply (CoList α) (ListFunctor α) n :=
+def CoList.destN {n : Nat} (o : CoList α) : n.repeat (ListFunctor α) (CoList α) :=
   let ⟨obj, cryst⟩ := o
   let struct := obj n
   walker struct
 where
-  walker : {k : Nat} → nApply _ _ k → nApply _ _ k
+  walker : {k : Nat} → k.repeat _ _ → k.repeat _ _
   | 0, _ => sorry
   | n+1, .nil => sorry
   | n+1, .cons _ _ => sorry
@@ -146,7 +142,7 @@ def CoList.dest (o : CoList α) : ListFunctor α (CoList α) :=
 
 def CoList.corec.impl
     (f : ρ → ListFunctor α ρ) (content : ρ) 
-    : (x : ℕ) → nApply Unit (ListFunctor α) x
+    : (x : ℕ) → x.repeat (ListFunctor α) Unit
   | 0 => .unit
   | _+1 => match f content with
     | .nil => .nil
@@ -180,7 +176,6 @@ class SimpleCasesND (t : Type) extends SimpleCtorsND t where
     ((ctors.map
       (fun ⟨args, ctor⟩ => (x : args) → motive (ctor x))).foldl Prod Unit) → ((x : t) → motive x)
 
-
 def takeList (l : CoList α) : Nat → List α
   | 0 => []
   | n+1 =>
@@ -188,5 +183,5 @@ def takeList (l : CoList α) : Nat → List α
     | .nil => []
     | .cons hd tl => hd :: takeList tl n
 
-#reduce takeList (CoList.corec (fun x => .cons x x.succ) 0) 103
+#reduce takeList (CoList.corec (fun x => .cons x x.succ) 0) 167
 
