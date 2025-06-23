@@ -93,8 +93,7 @@ theorem updateImage.comm_inj
     simp only [List.Disjoint, List.mem_map, Function.comp_apply, imp_false, not_exists, not_and,
       forall_exists_index, and_imp, forall_apply_eq_imp_iff₂]
     exact fun _ _ _ _ h => Sum.noConfusion (hInj h)
-  all_goals apply List.Nodup.map
-  <;> (try exact Fintype2.nodup) <;> apply Function.Injective.comp hInj
+  all_goals refine List.Nodup.map (Function.Injective.comp hInj ?_) Fintype2.nodup
   · exact @Sum.inr.inj _ _
   · exact @Sum.inl.inj _ _
 

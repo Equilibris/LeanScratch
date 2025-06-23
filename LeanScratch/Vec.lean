@@ -5,6 +5,10 @@ inductive Vec (T : Type u) : Nat → Type u
   | cons (hd : T) (tl : Vec T n) : Vec T n.succ
 deriving DecidableEq
 
+def Vec.toList : Vec T n → List T
+  | .nil => []
+  | .cons hd tl => hd :: tl.toList
+
 instance : Inhabited (Vec T 0) where
   default := .nil
 
@@ -39,6 +43,7 @@ def Vec.set : Fin2 n → Vec T n → T → Vec T n
   | .fz,     _ %:: tl, v => v %:: tl
   | .fs idx, hd %:: tl, v => hd %:: tl.set idx v
 
+@[simp]
 theorem Vec.set.overwrite {v : Vec T n}
     : (v.set idx x).set idx y = v.set idx y :=
   match v, idx with
@@ -56,6 +61,26 @@ theorem Vec.set.comm_ne {v : Vec T n} (hNe : idx ≠ jdx)
     exact hNe ∘ (·.rec rfl)
   | _ %:: _, .fz, .fs _ | _ %:: _, .fs _, .fz => rfl
   | _ %:: _, .fz, .fz => (hNe rfl).elim
+
+@[simp]
+theorem Vec.lookup_set_ne {v : Vec T n} (hNe : idx ≠ jdx)
+    : (v.set idx sv).lookup jdx = v.lookup jdx :=
+  match v, idx, jdx with
+  | _ %:: _, .fz, .fz => (hNe rfl).elim
+  | _ %:: _, .fz, .fs _
+  | _ %:: _, .fs _, .fz => rfl
+  | _ %:: _, .fs _, .fs _ => by
+    dsimp [lookup, set]
+    exact Vec.lookup_set_ne fun a_1 ↦ hNe (congrArg Fin2.fs a_1)
+
+@[simp]
+theorem Vec.lookup_set_eq {v : Vec T n}
+    : (v.set idx sv).lookup idx = sv :=
+  match v, idx with
+  | _ %:: _, .fz => rfl
+  | _ %:: _, .fs _ => by
+    dsimp [lookup, set]
+    exact Vec.lookup_set_eq
 
 def Vec.set_many (v : Vec T n) : List (Fin2 n × T) → Vec T n
   | [] => v
@@ -107,6 +132,12 @@ instance : LawfulFunctor (Vec · n) where
       rw [ih]
   map_const := rfl
 
+def Vec.mapM [Monad m] (f : α → m β) : Vec α n → m (Vec β n)
+  | .nil => return .nil
+  | .cons hd tl => do
+    let hd ← (f hd)
+    (hd %:: ·) <$> (tl.mapM f)
+
 def Vec.append : Vec T n → Vec T k → Vec T (k + n)
   | %[], rst => rst
   | hd %:: tl, rst => hd %:: tl.append rst
@@ -141,4 +172,17 @@ def Vec.ext {s1 s2 : Vec T n}
     obtain rfl := this .fz
     simp only [lookup, cons.injEq, true_and]
     exact Vec.ext $ funext λ x ↦ this $ .fs x
+
+inductive Vec.Mem (a : α) : {n : Nat} → Vec α n → Prop
+  /-- The head of a list is a member: `a ∈ a :: as`. -/
+  | head as : Mem a (a %:: as)
+  /-- A member of the tail of a list is a member of the list: `a ∈ l → a ∈ b :: l`. -/
+  | tail (b : α) : Mem a as → Mem a (b %:: as)
+
+@[simp]
+def Vec.toList_mem {v : Vec T n} (h : Vec.Mem x v) : x ∈ v.toList :=
+  match h with
+  | .head tl => .head _
+  | .tail _ tl => .tail _ $ Vec.toList_mem tl
+
 

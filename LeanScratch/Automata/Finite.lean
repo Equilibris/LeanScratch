@@ -36,6 +36,7 @@ inductive Regex (α : Sort _)
   | union  (a b : Regex α)
   | star   (a : Regex α)
   | ε
+  | empty
 
 namespace Regex
 inductive Matches {α : Sort _} : Regex α → List α → Prop
@@ -51,8 +52,8 @@ instance : Langauge (Regex α) α := ⟨Matches⟩
 
 end Regex
 
-structure NFA (σ : Sort*) where
-  (Q : Sort _)
+structure NFA (σ : Type) where
+  (Q : Type)
   [QisFin : Fintype Q]
 
   (Δ : Q → σ → Q → Prop)
@@ -72,7 +73,7 @@ instance : Langauge (NFA α) α := ⟨Matches⟩
 
 end NFA
 
-structure DFA (σ) where
+structure DFA (σ : Type) where
   base : NFA σ
   isFunc : ∀ q curr next₁ next₂, base.Δ q curr next₁ ∧ base.Δ q curr next₂ → next₁ = next₂
 

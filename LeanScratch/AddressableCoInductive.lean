@@ -18,4 +18,6 @@ def CoList.dest.{u, v} {α : Type u} (v : CoList.{u, v} α) : Shape.{u, max (u +
 
 def CoList.ndcorec.{u, v} (v : ζ) (f : ζ → CoList.Shape.{u, v} α (fun _ => ζ)) : CoList α := ⟨fun _ => ζ, v, f⟩
 
+/- def CoList.nats : CoList -/
+
 

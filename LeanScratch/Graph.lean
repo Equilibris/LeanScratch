@@ -24,7 +24,7 @@ def Path.length' (p : Path α) (h : Path.IsFin p) : ℕ :=
   let ⟨w, p⟩ := h
   sorry
 
-/- #check Equiv -/
+#check Equiv
 
 namespace Path
 

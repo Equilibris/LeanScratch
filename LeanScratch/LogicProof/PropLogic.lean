@@ -1,7 +1,8 @@
 import LeanScratch.LogicProof.PropLogic.Formula
 import Mathlib.Init.Set
 
-
+example {P : α → Prop} {Q : Prop} : (∃ x, Q → P x) = (Q → ∀ x, P x) := propext
+  ⟨sorry, sorry⟩
 
 /- def Formula.Sat (ctx : A → Prop) : Formula A → Prop -/
 /-   | .atom v => ctx v -/

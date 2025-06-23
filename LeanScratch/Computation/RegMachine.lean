@@ -107,6 +107,17 @@ def Config.step (state : Config r L) : Option $ Config r L :=
     | .none      => .some ⟨regs, l2⟩
   | .hlt => .none
 
+theorem Config.step.none_hlt [Fintype2 L] {inM : RegMachine r L}
+    (h : RegMachine.Config.step inM ⟨view, s⟩ = none)
+    : inM s = .hlt :=
+  match heq : inM s with
+  | .hlt => rfl
+  | .inc _ _ | .dec _ _ _ => by
+    simp only [Config.step, heq] at h
+    <;> split at h
+    <;> exact Option.noConfusion h
+
+
 def Config.step_n (state : Config r L) : Nat → Option (Config r L)
   | 0 => state
   | n+1 => (state.step machine).bind (step_n · n)

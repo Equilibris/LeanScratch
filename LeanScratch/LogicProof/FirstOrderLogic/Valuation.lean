@@ -70,36 +70,36 @@ def Formula.denote (v : Valuation TA PA n) : Formula TA PA n → Prop
   | .exis b => ∃ x, b.denote (v.assign x)
   | .univ b => ∀ x, b.denote (v.assign x)
 
-def Term.toHoAS.correct
-    {f : Term TA (0 + n)} {ls : Vec (Term TA (0 + 0)) n}
+/- def Term.toHoAS.correct -/
+/-     {f : Term TA (0 + n)} {ls : Vec (Term TA (0 + 0)) n} -/
 
-    {heq : HEq ls $ ls.map (Valuation.mk interp (%[])).eval}
+/-     {heq : HEq ls $ ls.map (Valuation.mk interp (%[])).eval} -/
 
-    : FOL.Valuation.eval ⟨interp⟩ (f.substAll 0 ls).toHoAS
-    = Valuation.eval ⟨interp, ls'⟩ f :=
-  match f with
-  | .var _ => by
-    sorry
-  | .const _ _ => sorry
+/-     : FOL.Valuation.eval ⟨interp⟩ (f.substAll 0 ls).toHoAS -/
+/-     = Valuation.eval ⟨interp, ls'⟩ f := -/
+/-   match f with -/
+/-   | .var _ => by -/
+/-     sorry -/
+/-   | .const _ _ => sorry -/
 
-def Formula.toHoAS.correct
-    {f : Formula TA PA (0 + n)} {ls : Vec (Term TA 0) n}
+/- def Formula.toHoAS.correct -/
+/-     {f : Formula TA PA (0 + n)} {ls : Vec (Term TA 0) n} -/
 
-    {heq : HEq ls $ ls.map (Valuation.mk interp (%[])).eval}
+/-     {heq : HEq ls $ ls.map (Valuation.mk interp (%[])).eval} -/
 
-    : (f.substAll ls).toHoAS.denote ⟨interp⟩
-    = f.denote ⟨interp, ls'⟩ :=
-  match f with
-  | .pred p args => by
-    sorry
+/-     : (f.substAll ls).toHoAS.denote ⟨interp⟩ -/
+/-     = f.denote ⟨interp, ls'⟩ := -/
+/-   match f with -/
+/-   | .pred p args => by -/
+/-     sorry -/
 
-  | .neg x => sorry
+/-   | .neg x => sorry -/
 
-  | .disj a b => sorry
-  | .conj a b => sorry
+/-   | .disj a b => sorry -/
+/-   | .conj a b => sorry -/
 
-  | .iff a b => sorry
-  | .imp a b => sorry
+/-   | .iff a b => sorry -/
+/-   | .imp a b => sorry -/
 
-  | .exis b => sorry
-  | .univ b => sorry
+/-   | .exis b => sorry -/
+/-   | .univ b => sorry -/

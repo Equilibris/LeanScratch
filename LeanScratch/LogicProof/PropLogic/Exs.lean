@@ -78,8 +78,6 @@ abbrev Ex20 : ClauseSet Bool := [⟨[], [.true, .false]⟩, ⟨[.true], [.false]
 #guard_msgs in
 #eval dpll Ex20
 
-
-
 end Exs
 
 

@@ -1,106 +1,123 @@
 import LeanScratch.Fin2
 import LeanScratch.LogicProof.PropLogic.Formula
 
+namespace PLogic
+
 inductive Bdd.Base (Var : Type) : Nat → Type
-  | nil : Base Var 0
-  | node (v : Var) (l r : Bool ⊕ Fin2 n) (rest : Base Var n) : Base Var n.succ
+  | nil : Base _ 0
+  | bot (v : Bool) (rest : Base Var n) : Base Var n.succ
+  | node (v : Var) (l r : Fin2 n) (rest : Base Var n) : Base Var n.succ
 
-/- example {α : Type v} {β : α → Type u} : (x : α) → β x := sorry -/
+namespace Bdd.Base
 
-def Bdd.Base.get : Base Var n → Fin2 n → Sigma (Base Var)
+def get : Base Var n → Fin2 n → (n : Nat) × Base Var n.succ
   | x, .fz => ⟨_, x⟩
+  | .bot _ rest, .fs idx      => rest.get idx
   | .node _ _ _ rest, .fs idx => rest.get idx
 
-def Bdd.Base.get' : Base Var n → {x : Fin2 n} → Base Var (n - x.toNat)
-  | x, .fz => x
-  | .node _ _ _ rest, .fs idx =>
-    sorry
-    /- let x := rest.get' idx -/
-    /- sorry -/
-
-theorem Bdd.Base.get_le
-    : {inp : Bdd.Base V n} → {idx : Fin2 n} → (inp.get idx).fst ≤ n
-  | _, .fz => by simp only [get, le_refl]
+theorem get_le
+    : {inp : Bdd.Base V n} → {idx : Fin2 n} → (inp.get idx).fst.succ ≤ n
+  | _, .fz => by simp [Nat.succ_eq_add_one, get]
+  | .bot _ rest, .fs i
   | .node _ _ _ rest, .fs i => calc
-    (rest.get i).fst ≤ _     := get_le
-    _                ≤ _ + 1 := Nat.le_add_right _ _
+    (rest.get i).fst + 1 ≤ _     := get_le
+    _                    ≤ _ + 1 := Nat.le_add_right _ _
 
-/- def Bdd.equiv : Base Var n → Base Var m → Prop -/
+theorem get_le'
+    {inp : Bdd.Base V n} {idx : Fin2 n} (h : inp.get idx = ⟨n₁, v⟩)
+    : n₁.succ ≤ n := by
+  have := (Sigma.eta _).trans h
+  injections feq seq
+  rw [←feq]
+  exact get_le (inp := inp) (idx := idx)
 
-inductive Bdd.Equiv : Base Var n → Base Var m → Prop
+@[elab_as_elim]
+def Bdd.Base.ind
+    {motive : (n : _) → Bdd.Base Var n.succ → Sort u}
+    (hBaseHolds : {n : _} → (rst : Base Var n) → (b : _) → motive _ (.bot b rst))
+    (hNode      :
+      {n : _} →
+      (rst : Base Var n) →
+      (v l r : _) →
+      (ihl : motive _ (rst.get l).snd) →
+      (ihr : motive _ (rst.get r).snd) →
+      motive _ (.node v l r rst))
+    : {n : Nat} → (t : Bdd.Base Var (n + 1)) → motive n t := fun {n} t =>
+  match t with
+  | .bot v rst => hBaseHolds _ _
+  | .node v l r rst =>
+    match hl : rst.get l, hr : rst.get r with
+    | ⟨n₁, l⟩, ⟨n₂, r⟩ =>
+      have : n₁ < n := get_le' hl
+      have : n₂ < n := get_le' hr
+      have l := ind hBaseHolds hNode l
+      have r := ind hBaseHolds hNode r
+      hNode _ _ _ _ (hl.symm.rec l) (hr.symm.rec r)
+termination_by n => n
+
+inductive Equiv : Base Var n → Base Var m → Prop
   | nil : Equiv .nil .nil
-  | bothStep
+  | bot : Equiv r₁ r₂ → Equiv (.bot v r₁) (.bot v r₂)
+  | node
       (hLEq : Equiv (rst₁.get l₁).snd (rst₁.get l₂).snd)
       (hREq : Equiv (rst₂.get r₁).snd (rst₂.get r₂).snd)
-      : Equiv (.node v (.inr l₁) (.inr r₁) rst₁) (.node v (.inr l₂) (.inr r₂) rst₂)
-  | lStep
-      (hLEq : Equiv (rst₁.get l₁).snd (rst₁.get l₂).snd)
-      : Equiv (.node v (.inr l₁) (.inl b) rst₁) (.node v (.inr l₂) (.inl b) rst₂)
-  | rStep
-      (hREq : Equiv (rst₂.get r₁).snd (rst₂.get r₂).snd)
-      : Equiv (.node v (.inl b) (.inr r₁) rst₁) (.node v (.inl b) (.inr r₂) rst₂)
+      : Equiv (.node v l₁ r₁ rst₁) (.node v l₂ r₂ rst₂)
 
-elab "require_defined" n:ident : tactic => fun stx => (do
-  let ctx ← Lean.MonadLCtx.getLCtx
-  let v ← ctx.findDeclM? fun decl => do
-    if decl.userName = n.getId then return .some Unit.unit
-    else                            return .none
+abbrev ifte (v t f : Prop) :=
+  (v → t) ∧ (¬v → f)
 
-  match v with
-  | .some _ => pure ()
-  | .none => throwErrorAt n s!"{n} is not defined"
-)
+/- def Denote (Base : Var → Prop) : Bdd.Base Var n → Prop -/
+/-   | .nil => False -/
+/-   | .bot b _ => b -/
+/-   | .node v l r rst => ifte (Base v) () -/
 
-/-
+inductive Denote (Base : Var → Prop) : Bdd.Base Var n → Prop
+  | botT  : Denote Base (.bot .true _)
+  | nodeT :  Base v → Denote Base (rst.get l).snd → Denote Base (.node v l r rst)
+  | nodeF : ¬Base v → Denote Base (rst.get r).snd → Denote Base (.node v l r rst)
 
-def Bdd.Equiv.dec [DecidableEq Var] : (x : Base Var n) → (y : Base Var m) → Decidable (Bdd.Equiv x y)
-  | .nil, .nil => .isTrue (.nil)
-  | .node v₁ l₁ r₁ rst₁, .node v₂ l₂ r₂ rst₂ =>
-    -- might be better to write in tactic mode...
-    if h : v₁ = v₂ then by
-      match l₁, l₂ with
-      | .inl .true, .inl .false | .inl .false, .inl .true 
-      | .inr _, .inl _ | .inl _, .inr _ => exact .isFalse (fun x => by cases x)
+@[simp]
+def Denote.bot : Denote B (.bot v rst) = v := 
+  propext ⟨
+    fun | botT => rfl,
+    fun h => h.symm.rec .botT
+  ⟩
 
-      | .inl .true, .inl .true
-      | .inl .false, .inl .false
-      | .inr li₁, .inr li₂ =>
-      match r₁, r₂ with
-      | .inl .true, .inl .false | .inl .false, .inl .true 
-      | .inr _, .inl _ | .inl _, .inr _ => exact .isFalse (fun x => by cases x)
-      | .inl .true, .inl .true
-      | .inl .false, .inl .false
-      | .inr ri₁, .inr ri₂ =>
-        all_goals skip
-        any_goals require_defined li₁
-        /- any_goals ( require_defined li₁; have ldec := dec (rst₁.get li₁).snd (rst₂.get li₂).snd) -/
-        sorry
+@[simp]
+def Denote.node :
+    Denote B (.node v l r rst) =
+    ifte (B v) (Denote B (rst.get l).snd) (Denote B (rst.get r).snd) :=
+  propext ⟨
+    fun
+      | .nodeT b v
+      | .nodeF b v => by simp_all [ifte],
+    fun ⟨l, r⟩ => by
+      by_cases h : B v
+      · exact .nodeT h (l h)
+      · exact .nodeF h (r h)
+  ⟩
 
+end Base
 
-    else
-      .isFalse (fun x => by cases x <;> exact h rfl)
-    /- ∧ (match l₁, l₂ with -/
-    /-   | .inr idx₁, .inr idx₂ => -/
-    /-     Bdd.Equiv (rst₁.get idx₁).snd (rst₂.get idx₂).snd -/
-    /-   | .inl .true, .inl .true -/
-    /-   | .inl .false, .inl .false => True -/
-    /-   | _, _ => False) -/
-    /- ∧ (match r₁, r₂ with -/
-    /-   | .inr idx₁, .inr idx₂ => -/
-    /-     Bdd.Equiv (rst₁.get idx₁).snd (rst₂.get idx₂).snd -/
-    /-   | .inl .true, .inl .true -/
-    /-   | .inl .false, .inl .false => True -/
-    /-   | _, _ => False) -/
-  | .node _ _ _ _, .nil
-  | .nil, .node _ _ _ _ => .isFalse (fun x => by cases x)
-/- termination_by n -/
-/- decreasing_by -/
-/- all_goals { -/
-/-   simp_wf -/
-/-   apply Nat.lt_succ_of_le -/
-/-   exact Bdd.Base.get_le -/
-/- } -/
--/
+abbrev Base.CodesFor (v : Formula Var) (t : Bdd.Base Var n) : Prop :=
+  v.denote = t.Denote
 
+def Base.neg : Base Var n → Base Var n
+  | .nil => .nil
+  | .bot x rst => .bot x.not rst.neg
+  | .node v l r rst => .node v l r rst.neg
 
+theorem Base.neg.correct {t : Base Var (n + 1)} (h : CodesFor v t) : CodesFor v.neg t.neg := by
+  ext base
+  apply (Function.funext_iff.mp · base) at h
+  induction t using Bdd.Base.ind generalizing v
+  · simp [Denote, neg, Formula.denote, h] at h ⊢
+  case hNode rst v' l r ihl ihr =>
+    simp [Nat.succ_eq_add_one, neg] at *
+    by_cases h' : base v'
+    <;> simp_all [ifte, h]
+    · specialize ihl h
+      sorry
+    · specialize ihr h
+      sorry
 

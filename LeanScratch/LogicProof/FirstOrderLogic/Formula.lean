@@ -151,7 +151,11 @@ def Formula.toHoAS : Formula TA PA 0 → FOL.Formula TA PA
 termination_by f => f.sz
 decreasing_by
 all_goals simp_wf
-all_goals (try { dsimp [sz]; omega })
+any_goals (dsimp [sz]; omega)
 all_goals rw [subst.sz]
 all_goals exact Nat.lt_succ_self _
+
+example {P : α → β → Prop} : (∀ x, ∃ y, P x y) = (∃ f : _ → β, ∀ x, P x (f x)) := propext ⟨
+  λ p ↦ ⟨(Classical.choose $ p ·), (Classical.choose_spec $ p ·)⟩,
+  λ ⟨f, p⟩ x ↦ ⟨f x, p x⟩⟩
 

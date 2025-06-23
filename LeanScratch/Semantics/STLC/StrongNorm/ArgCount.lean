@@ -25,7 +25,7 @@ def Monotonic (v : ArgCount s) : Prop := match s with
   | .direct _ => True
   | .arr argTy _ =>
     -- Might need to add the restrictions Monotonic a and Monotonic b
-    (∀ a b : ArgCount argTy, Monotonic a → Monotonic b →  le a b → le (v a) (v b)) ∧
+    (∀ a b : ArgCount argTy, Monotonic a → Monotonic b → le a b → le (v a) (v b)) ∧
       (∀ x : ArgCount argTy, Monotonic x → Monotonic (v x))
 end
 

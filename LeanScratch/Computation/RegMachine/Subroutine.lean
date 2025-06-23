@@ -1,5 +1,4 @@
 import LeanScratch.Computation.RegMachine
-import LeanScratch.Computation.RegMachine.UpdateImage
 import LeanScratch.Computation.RegMachine.Subroutine.Ins
 import LeanScratch.Computation.RegMachine.Subroutine.Reg
 
