@@ -4,20 +4,19 @@ import LeanScratch.Domain.Continous
 
 namespace Dom
 
-variable [da : Dom A] [db : Dom B] [dc : Dom C]
+variable {A B C : _} [da : Dom A] [db : Dom B] [dc : Dom C]
 
 instance : Dom (Prod A B) where
   bot_le x := Prod.le_def.mpr ⟨da.bot_le x.fst, db.bot_le x.snd⟩
-  chain_complete c :=
-    have ca := chain_complete $ c.map Prod.fst monotone_fst
-    have cb := chain_complete $ c.map Prod.snd monotone_snd
-    {
-      lub := ⟨ca.lub, cb.lub⟩
-      lub_bound := fun n => Prod.le_def.mpr ⟨ca.lub_bound n, cb.lub_bound n⟩
+  chain_complete c hc :=
+    have ⟨ca, hca⟩ := chain_complete (c.map Prod.fst) (hc.map monotone_fst)
+    have ⟨cb, hcb⟩ := chain_complete (c.map Prod.snd) (hc.map monotone_snd)
+    ⟨⟨ca, cb⟩, {
+      lub_bound := fun n => Prod.le_def.mpr ⟨hca.lub_bound n, hcb.lub_bound n⟩
       lub_least := fun x h => Prod.le_def.mpr ⟨
-        ca.lub_least x.fst (And.left  $ Prod.le_def.mp $ h ·),
-        cb.lub_least x.snd (And.right $ Prod.le_def.mp $ h ·)⟩
-    }
+        hca.lub_least x.fst (And.left  $ Prod.le_def.mp $ h ·),
+        hcb.lub_least x.snd (And.right $ Prod.le_def.mp $ h ·)⟩
+    }⟩
 
 
 def two_arg_mono
@@ -38,18 +37,18 @@ def two_arg_mono
 
 instance {f : A × B → C}
     (mono : Monotone f)
-    (hl : ∀ dn e ,
-      f ⟨(chain_complete dn).lub, e⟩ =
-      (chain_complete $ dn.map (f ⟨·, e⟩) $ (two_arg_mono.mpr mono).left e).lub)
-    (hr : ∀ d en ,
-      f ⟨d, (chain_complete en).lub⟩ =
-      (chain_complete $ en.map (f ⟨e, ·⟩) $ (two_arg_mono.mpr mono).right e).lub)
+    (hl : ∀ dn hdn e ,
+      f ⟨(chain_complete dn hdn).fst, e⟩ =
+      (chain_complete (dn.map (f ⟨·, e⟩)) (hdn.map $ (two_arg_mono.mpr mono).left e)).fst)
+    (hr : ∀ d en hen,
+      f ⟨d, (chain_complete en hen).fst⟩ =
+      (chain_complete (en.map (f ⟨e, ·⟩)) (hen.map $ (two_arg_mono.mpr mono).right e)).fst)
     : Continous f where
   mono := mono
   preserves_lubs := fun c => by
-    generalize chain_complete (c.map f _) = y
+    generalize chain_complete (c.map f) _ = y
     dsimp [chain_complete]
-    generalize chain_complete (c.map Prod.fst _) = xa, chain_complete (c.map Prod.snd _) = xb
+    generalize chain_complete (c.map Prod.fst) _ = xa, chain_complete (c.map Prod.snd) _ = xb
     let ct : ChainTrellis C := {
       gen := fun n m => f ⟨Prod.fst $ c.gen n, Prod.snd $ c.gen n⟩,
       chain := fun _ _ _ _ hl hr =>

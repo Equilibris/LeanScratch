@@ -59,9 +59,9 @@ instance : SemilatticeInf (PFun A B) where
     rw [hab _ _ h, hac _ _ h]
     simp only [↓reduceIte]
 
-noncomputable def PFun.lub (c : Chain $ PFun A B) : PFun A B := fun a =>
-  match Classical.dec (∃ n v, c.gen n a = .some v) with
-  | .isTrue  h => c.gen (Classical.choose h) a
+noncomputable def PFun.lub (c : C $ PFun A B) : PFun A B := fun a =>
+  match Classical.dec (∃ n v, c n a = .some v) with
+  | .isTrue  h => c (Classical.choose h) a
   | .isFalse _ => .none
 
 instance : LawfulBot (PFun A B) where
@@ -70,16 +70,15 @@ instance : LawfulBot (PFun A B) where
 
 noncomputable instance : Dom (PFun A B) where
   bot_le _ _ _ := Option.noConfusion
-  chain_complete c := {
-    lub := PFun.lub c,
+  chain_complete c hc := ⟨PFun.lub c, {
     -- The names should be longer here but i have not fixed this yet
     lub_bound := fun n dom cod h => by
       dsimp [PFun.lub]
       split
       next _ h' _ =>
         have ⟨w, p⟩ := Classical.choose_spec h'
-        have := c.rel (Classical.choose h') n
-        generalize c.gen (Classical.choose h') = x, c.gen n = y at p this h
+        have := hc.rel (Classical.choose h') n
+        generalize c (Classical.choose h') = x, c n = y at p this h
         rcases this with h'|h'
         · specialize h' _ _ p
           obtain rfl := Option.some_inj.mp $ h.symm.trans h'
@@ -92,5 +91,5 @@ noncomputable instance : Dom (PFun A B) where
       split at h
       next h' _ => exact hLe (Classical.choose h') _ _ h
       next h' _ => exact Option.noConfusion h
-  }
+  }⟩
 

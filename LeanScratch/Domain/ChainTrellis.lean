@@ -6,77 +6,92 @@ namespace Dom
 
 variable [ida : PartialOrder α]
 
-structure ChainTrellis (α : Type _) [PartialOrder α] where
-  gen : Nat → Nat → α
+abbrev CT (α : Type _) := Nat → Nat → α
+
+class ChainTrellis (gen : CT α) [PartialOrder α] where
   chain (n m n' m' : Nat) : n ≤ n' → m ≤ m' → gen n m ≤ gen n' m'
 
-def ChainTrellis.x (v : ChainTrellis α) (x : Nat) : Chain α where
-  gen := fun y => v.gen x y
-  chain := fun y => v.chain _ _ _ _ (Nat.le_refl x) (Nat.le_succ y)
-def ChainTrellis.y (v : ChainTrellis α) (y : Nat) : Chain α where
-  gen := fun x => v.gen x y
-  chain := fun x => v.chain _ _ _ _ (Nat.le_succ x) (Nat.le_refl y)
+variable {ct : CT α} [ hct : ChainTrellis ct ]
 
-def ChainTrellis.xlubC (v : ChainTrellis α) (hLubEx : ∀ n, Lub (v.x n)) : Chain α where
-  gen := fun n => (hLubEx n).lub
-  chain := fun x => by
-    apply Lub.mono
-    intro y
-    exact v.chain _ _ _ _ (Nat.le_succ x) (Nat.le_refl y)
-def ChainTrellis.ylubC (v : ChainTrellis α) (hLubEy : ∀ n, Lub (v.y n)) : Chain α where
-  gen := fun n => (hLubEy n).lub
-  chain := fun y => by
-    apply Lub.mono
-    intro x
-    exact v.chain _ _ _ _ (Nat.le_refl x) (Nat.le_succ y)
+def CT.x (x : Nat) : C α := (fun y => ct x y)
+def CT.y (y : Nat) : C α := (fun x => ct x y)
 
-def ChainTrellis.diag (v : ChainTrellis α) : Chain α where
-  gen := fun n => v.gen n n
-  chain := fun n => v.chain _ _ _ _ (Nat.le_succ n) (Nat.le_succ n)
+instance CT.hx (x : Nat) : Chain (ct.x x) where
+  chain := fun y => hct.chain _ _ _ _ (Nat.le_refl x) (Nat.le_succ y)
+instance CT.hy (y : Nat) : Chain (ct.y y) where
+  chain := fun x => hct.chain _ _ _ _ (Nat.le_succ x) (Nat.le_refl y)
+
+def ChainTrellis.xlubC [v : ChainTrellis ct]
+    (lubc : C α)
+    (hLubEx : ∀ n, Lub (ct.x n) (lubc n)) : Chain lubc where
+  chain := fun n => by
+    apply (hLubEx n).mono fun y => v.chain _ _ _ _ (Nat.le_succ n) (Nat.le_refl y)
+    have ib : Lub (ct.x n.succ) (lubc n.succ) := by infer_instance
+    exact ib
+
+def ChainTrellis.ylubC [v : ChainTrellis ct]
+    (lubc : C α)
+    (hLubEx : ∀ n, Lub (ct.y n) (lubc n)) : Chain lubc where
+  chain := fun n => by
+    apply (hLubEx n).mono fun x => v.chain _ _ _ _ (Nat.le_refl x) (Nat.le_succ n)
+    have ib : Lub (ct.y n.succ) (lubc n.succ) := by infer_instance
+    exact ib
+
+def CT.diag : C α := fun n => ct n n
+
+def ChainTrellis.diag : Chain ct.diag where
+  chain := fun n => hct.chain _ _ _ _ (Nat.le_succ n) (Nat.le_succ n)
 
 def ChainTrellis.lubXDiag
-    {v : ChainTrellis α} (hLubEx : ∀ n, Lub (v.x n))
-    (lubx : Lub (v.xlubC hLubEx)) (lubd : Lub v.diag)
-    : lubx.lub = lubd.lub :=
+    {lubxc : C α}
+    (hLubEx : ∀ n, Lub (ct.x n) (lubxc n))
+    (hlubx : Lub lubxc lubdx) (hlubd : Lub ct.diag lubd)
+    : lubdx = lubd :=
   ida.le_antisymm _ _
     (by
-      refine lubx.lub_least lubd.lub fun n => (hLubEx n).lub_least lubd.lub fun n1 => ?_
+      refine hlubx.lub_least lubd fun n => (hLubEx n).lub_least lubd fun n1 => ?_
       -- get the value on the diagonal
-      exact ida.le_trans _ (v.gen (n + n1) (n + n1)) _
-        (v.chain _ _ _ _ (Nat.le_add_right _ _) (Nat.le_add_left _ _))
-        (lubd.lub_bound (n + n1)))
-    (lubd.mono fun n => (hLubEx n).lub_bound n)
+      apply ida.le_trans _ (ct (n + n1) (n + n1)) _
+      exact (hct.chain _ _ _ _ (Nat.le_add_right _ _) (Nat.le_add_left _ _))
+      exact (hlubd.lub_bound (n + n1)))
+    $ by
+      apply hlubd.mono
+      apply fun n => (hLubEx n).lub_bound n
+      exact fun _ ↦ hlubx
 
 def ChainTrellis.lubYDiag
-    {v : ChainTrellis α} (hLubEy : ∀ n, Lub (v.y n))
-    (lubx : Lub (v.ylubC hLubEy)) (lubd : Lub v.diag)
-    : lubx.lub = lubd.lub :=
+    {lubyc : C α}
+    (hLubEx : ∀ n, Lub (ct.y n) (lubyc n))
+    (hluby : Lub lubyc lubdx) (hlubd : Lub ct.diag lubd)
+    : lubdx = lubd :=
   ida.le_antisymm _ _
     (by
-      refine lubx.lub_least lubd.lub fun n => (hLubEy n).lub_least lubd.lub fun n1 => ?_
+      refine hluby.lub_least lubd fun n => (hLubEx n).lub_least lubd fun n1 => ?_
       -- get the value on the diagonal
-      exact ida.le_trans _ (v.gen (n + n1) (n + n1)) _
-        (v.chain _ _ _ _ (Nat.le_add_left _ _) (Nat.le_add_right _ _))
-        (lubd.lub_bound (n + n1)))
-    (lubd.mono fun n => (hLubEy n).lub_bound n)
+      apply ida.le_trans _ (ct (n + n1) (n + n1)) _
+      exact (hct.chain _ _ _ _ (Nat.le_add_left _ _) (Nat.le_add_right _ _))
+      exact (hlubd.lub_bound (n + n1)))
+    $ by
+      apply hlubd.mono
+      apply fun n => (hLubEx n).lub_bound n
+      exact fun _ ↦ hluby
 
 def ChainTrellis.lubCEq
-    {v : ChainTrellis α} (hLubEx : ∀ n, Lub (v.x n)) (hLubEy : ∀ n, Lub (v.y n))
-    (lubx : Lub (v.xlubC hLubEx)) (luby : Lub (v.ylubC hLubEy))
-    : lubx.lub = luby.lub :=
-  ida.le_antisymm _ _
+    {lubxc : C α} {lubyc : C α}
+    (hLubEx : ∀ n, Lub (ct.x n) (lubxc n))
+    (hLubEy : ∀ n, Lub (ct.y n) (lubyc n))
+    (hlubx : Lub lubxc lubx)
+    (hluby : Lub lubyc luby)
+    : lubx = luby :=
+  le_antisymm
     (by
-      refine lubx.lub_least luby.lub fun n => ?_
-      dsimp [ylubC]
-      refine (hLubEx n).lub_least luby.lub fun n1 => ?_
-      apply ida.le_trans _ _ _ _ (luby.lub_bound n1)
-      dsimp [xlubC]
+      refine hlubx.lub_least _ fun n => ?_
+      refine (hLubEx n).lub_least _ fun n1 => ?_
+      apply ida.le_trans _ _ _ _ (hluby.lub_bound n1)
       exact (hLubEy n1).lub_bound n)
     (by
-      refine luby.lub_least lubx.lub fun n => ?_
-      dsimp [ylubC]
-      refine (hLubEy n).lub_least lubx.lub fun n1 => ?_
-      apply ida.le_trans _ _ _ _ (lubx.lub_bound n1)
-      dsimp [xlubC]
+      refine hluby.lub_least _ fun n => ?_
+      refine (hLubEy n).lub_least _ fun n1 => ?_
+      apply ida.le_trans _ _ _ _ (hlubx.lub_bound n1)
       exact (hLubEx n1).lub_bound n)
 
