@@ -64,10 +64,13 @@ noncomputable def PFun.lub (c : Chain $ PFun A B) : PFun A B := fun a =>
   | .isTrue  h => c.gen (Classical.choose h) a
   | .isFalse _ => .none
 
-instance : Dom (PFun A B) where
+instance : LawfulBot (PFun A B) where
   bot _ := .none
   bot_le _ _ _ := Option.noConfusion
-  chain_complete c := ⟨{
+
+noncomputable instance : Dom (PFun A B) where
+  bot_le _ _ _ := Option.noConfusion
+  chain_complete c := {
     lub := PFun.lub c,
     -- The names should be longer here but i have not fixed this yet
     lub_bound := fun n dom cod h => by
@@ -89,5 +92,5 @@ instance : Dom (PFun A B) where
       split at h
       next h' _ => exact hLe (Classical.choose h') _ _ h
       next h' _ => exact Option.noConfusion h
-  }, .intro⟩
+  }
 

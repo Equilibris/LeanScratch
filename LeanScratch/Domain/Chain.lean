@@ -3,7 +3,7 @@ import Mathlib.Data.Finset.Basic
 
 namespace Dom
 
-variable [ida : PartialOrder α]
+variable [ida : PartialOrder α] [idb : PartialOrder β]
 
 structure Chain (α : Type _) [PartialOrder α] where
   gen : Nat → α
@@ -27,3 +27,7 @@ structure Chain.finite (c : Chain α) : Type _ where
   ordered : List.Pairwise ida.le ls
   allMem n : c.gen n ∈ ls
   memAll x (h : x ∈ ls) : ∃ n, c.gen n = x
+
+def Chain.map (c : Chain α) (f : α → β) (m : Monotone f) : Chain β where
+  gen := f ∘ c.gen
+  chain n := m $ c.chain n

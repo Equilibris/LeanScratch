@@ -1,5 +1,6 @@
 import Mathlib.Order.Basic
 import Mathlib.Order.Lattice
+import LeanScratch.Domain.Dom
 
 namespace Dom
 
@@ -25,5 +26,13 @@ instance {f : α → α} : Subsingleton (LeastPreFixedPoint f) where
       (a_least b_fix)
       (b_least a_fix)
 end
+
+theorem LeastPreFixedPoint.is_fixed_point
+    {f : α → α} (m : Monotone f)
+    (fixf : LeastPreFixedPoint f)
+    : f fixf = fixf :=
+  ida.le_antisymm _ _
+    (fixf.lfp_fix)
+    (fixf.lfp_least $ m fixf.lfp_fix)
 
 section

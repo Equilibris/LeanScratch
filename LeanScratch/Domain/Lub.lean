@@ -88,3 +88,11 @@ def Lub.finite (h : c.finite) : Lub c where
       exact h' w
     this (h.ls.getLast _) $ List.getLast_mem _
 
+def Lub.finite_mem
+    (h : c.finite)
+    (l : Lub c)
+    : ∃ n, c.gen n = l.lub :=
+  h.memAll l.lub $ by
+    obtain rfl := Subsingleton.allEq (finite h) l
+    apply List.getLast_mem
+
