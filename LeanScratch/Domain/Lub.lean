@@ -38,7 +38,7 @@ def Lub.mono
       (h n)
       (helub.lub_bound n)
 
-def Lub.same
+def Lub.const
     (hSame : ∀ n, c n = d)
     : Lub c d where
   lub_bound := fun x => by rw [hSame]

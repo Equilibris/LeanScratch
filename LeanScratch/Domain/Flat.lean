@@ -75,7 +75,7 @@ instance : LawfulBot (Flat α) where
 
 noncomputable instance : Dom (Flat α) where
   bot_le := instLawfulBotFlat.bot_le
-  chain_complete c hc := ⟨_, Lub.finite $ Classical.choose $ Flat.finite c hc⟩
+  complete_lub c hc := Lub.finite $ Classical.choose $ Flat.finite c hc
 
 def Flat.domainLift (f : PFun A B) : Flat A → Flat B
   | .bot => .bot
@@ -98,15 +98,17 @@ noncomputable instance : Continous.Helper (Flat.domainLift f) where
   mono := Flat.domainLift.mono
 
   preserves_lubs c hc := by
-    generalize chain_complete c _ = club, (chain_complete (c.map (Flat.domainLift f)) _) = club'
-    cases h : club.fst
+    have hclub := complete_lub c hc
+    have hclub' := complete_lub (c.map (Flat.domainLift f)) (hc.map Flat.domainLift.mono)
+    generalize complete c _ = club, (complete (c.map (Flat.domainLift f)) _) = club' at hclub hclub'
+    cases h : club
     <;> dsimp [Flat.domainLift]
     any_goals split
-    any_goals exact bot_le club'.fst
+    any_goals exact bot_le _
     rename_i v _ x heq
     have ⟨w, .intro⟩ := Flat.finite c hc
-    have ⟨n, p⟩ := Lub.finite_mem w club.snd
-    apply le_trans _ (club'.snd.lub_bound n)
+    have ⟨n, p⟩ := Lub.finite_mem w hclub
+    apply le_trans _ (hclub'.lub_bound n)
     simp [Flat.domainLift, C.map, p, h, heq]
 
 noncomputable instance : StrictContinous (Flat.domainLift f) := ⟨rfl⟩

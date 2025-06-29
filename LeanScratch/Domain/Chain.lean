@@ -31,5 +31,8 @@ class C.finite (c : C α) : Type _ where
 
 def C.map (c : C α) (f : α → β) : C β := f ∘ c
 
+@[simp]
+theorem C.map_id {c : C α} : c.map id = c := rfl
+
 instance Chain.map {c : C α} {f : α → β} [ca : Chain c] (m : Monotone f) : Chain (c.map f) where
   chain n := m $ ca.chain n

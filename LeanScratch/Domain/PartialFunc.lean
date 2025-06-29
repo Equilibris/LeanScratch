@@ -70,7 +70,8 @@ instance : LawfulBot (PFun A B) where
 
 noncomputable instance : Dom (PFun A B) where
   bot_le _ _ _ := Option.noConfusion
-  chain_complete c hc := ⟨PFun.lub c, {
+  complete c _ := PFun.lub c
+  complete_lub c hc := {
     -- The names should be longer here but i have not fixed this yet
     lub_bound := fun n dom cod h => by
       dsimp [PFun.lub]
@@ -91,5 +92,5 @@ noncomputable instance : Dom (PFun A B) where
       split at h
       next h' _ => exact hLe (Classical.choose h') _ _ h
       next h' _ => exact Option.noConfusion h
-  }⟩
+  }
 

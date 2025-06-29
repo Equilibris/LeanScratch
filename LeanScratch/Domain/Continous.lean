@@ -7,23 +7,23 @@ variable [dd : Dom D] [de : Dom E] (f : D → E)
 class Continous where
   mono : Monotone f
   preserves_lubs (c : C D) (hc : Chain c) :
-    f (dd.chain_complete c hc).fst = (de.chain_complete (c.map f) (hc.map mono)).fst
+    f (complete c hc) = complete (c.map f) (hc.map mono)
 
 def Continous.helper
     (c : C D) (hc : Chain c)
     (mono : Monotone f)
-    (h : f (dd.chain_complete c hc).fst ≤ (de.chain_complete (c.map f) (hc.map mono)).fst)
-    :    f (dd.chain_complete c hc).fst = (de.chain_complete (c.map f) (hc.map mono)).fst
+    (h : f (complete c hc) ≤ (complete (c.map f) (hc.map mono)))
+    :    f (complete c hc) = (complete (c.map f) (hc.map mono))
     :=
   le_antisymm h $
-    (chain_complete (c.map f) _).snd.lub_least
-      (f (chain_complete c _).fst)
-      (mono $ (chain_complete c _).snd.lub_bound ·)
+    (complete_lub (c.map f) _).lub_least
+      (f (complete c _))
+      (mono $ (complete_lub c _).lub_bound ·)
 
 class Continous.Helper where
   mono : Monotone f
   preserves_lubs (c : C D) (hc : Chain c) :
-    f (dd.chain_complete c hc).fst ≤ (de.chain_complete (c.map f) (hc.map mono)).fst
+    f (complete c hc) ≤ complete (c.map f) (hc.map mono)
 
 instance [x : Continous.Helper f] : Continous f where
   mono := x.mono

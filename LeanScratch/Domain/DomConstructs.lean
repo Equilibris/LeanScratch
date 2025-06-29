@@ -8,15 +8,16 @@ variable {A B C : _} [da : Dom A] [db : Dom B] [dc : Dom C]
 
 instance : Dom (Prod A B) where
   bot_le x := Prod.le_def.mpr ⟨da.bot_le x.fst, db.bot_le x.snd⟩
-  chain_complete c hc :=
-    have ⟨ca, hca⟩ := chain_complete (c.map Prod.fst) (hc.map monotone_fst)
-    have ⟨cb, hcb⟩ := chain_complete (c.map Prod.snd) (hc.map monotone_snd)
-    ⟨⟨ca, cb⟩, {
+  complete c hc := ⟨complete (c.map Prod.fst) (hc.map monotone_fst), complete (c.map Prod.snd) (hc.map monotone_snd)⟩
+  complete_lub c hc :=
+    have hca := complete_lub (c.map Prod.fst) (hc.map monotone_fst)
+    have hcb := complete_lub (c.map Prod.snd) (hc.map monotone_snd)
+    {
       lub_bound := fun n => Prod.le_def.mpr ⟨hca.lub_bound n, hcb.lub_bound n⟩
       lub_least := fun x h => Prod.le_def.mpr ⟨
         hca.lub_least x.fst (And.left  $ Prod.le_def.mp $ h ·),
         hcb.lub_least x.snd (And.right $ Prod.le_def.mp $ h ·)⟩
-    }⟩
+    }
 
 
 def two_arg_mono
@@ -33,33 +34,53 @@ def two_arg_mono
     ⟩
   ⟩
 
-
-
-instance {f : A × B → C}
+def Continous.sep_args {f : A × B → C}
     (mono : Monotone f)
     (hl : ∀ dn hdn e ,
-      f ⟨(chain_complete dn hdn).fst, e⟩ =
-      (chain_complete (dn.map (f ⟨·, e⟩)) (hdn.map $ (two_arg_mono.mpr mono).left e)).fst)
+      f ⟨(complete dn hdn), e⟩ =
+      complete (dn.map (f ⟨·, e⟩)) (hdn.map $ (two_arg_mono.mpr mono).left e))
     (hr : ∀ d en hen,
-      f ⟨d, (chain_complete en hen).fst⟩ =
-      (chain_complete (en.map (f ⟨e, ·⟩)) (hen.map $ (two_arg_mono.mpr mono).right e)).fst)
+      f ⟨d, complete en hen⟩ =
+      complete (en.map (f ⟨d, ·⟩)) (hen.map $ (two_arg_mono.mpr mono).right d))
     : Continous f where
   mono := mono
-  preserves_lubs := fun c => by
-    generalize chain_complete (c.map f) _ = y
-    dsimp [chain_complete]
-    generalize chain_complete (c.map Prod.fst) _ = xa, chain_complete (c.map Prod.snd) _ = xb
-    let ct : ChainTrellis C := {
-      gen := fun n m => f ⟨Prod.fst $ c.gen n, Prod.snd $ c.gen n⟩,
-      chain := fun _ _ _ _ hl hr =>
+  preserves_lubs c hc:= by
+    dsimp [complete]
+    generalize_proofs p₁ p₂ p₃
+    apply Eq.trans $ hl _ _ _
+    change complete (f ⟨Prod.fst $ c ·, complete (c.map Prod.snd) p₂⟩) _ = _
+    conv =>
+      args
+      · args
+        intro x
+        rw [hr _ _ p₂]
+      · skip
+    let ct : CT C := fun n m => f ⟨(c n).1, (c m).2⟩
+    have hct : ChainTrellis ct := {
+      chain := fun n m n' m' hl hr =>
         mono $ Prod.le_def.mpr ⟨
-          monotone_fst $ Chain.le_lift c hl,
-          monotone_snd $ Chain.le_lift c hl
+          (Prod.le_def.mp $ hc.le_lift hl).left,
+          (Prod.le_def.mp $ hc.le_lift hr).right,
         ⟩
     }
-    have : ct.diag = c.map f mono := (Chain.mk.injEq _ _ _ _).mpr $ funext fun x ↦ rfl
-    have heq : HEq c $ chain_complete ct.diag := by
-      apply?
-    sorry
+    exact hct.complete_merge
 
+instance Continous.fst : Continous (Prod.fst : A × B → A) :=
+  Continous.sep_args
+    monotone_fst
+    (fun _ _ _ => rfl)
+    (fun _ _ _ => Lub.complete_const.symm)
+
+instance Continous.snd : Continous (Prod.snd : A × B → B) :=
+  Continous.sep_args
+    monotone_snd
+    (fun _ _ _ => Lub.complete_const.symm)
+    (fun _ _ _ => rfl)
+
+def Prod.corec (f₁ : D → D₁) (f₂ : D → D₂) (x : D) : D₁ × D₂ :=
+  (f₁ x, f₂ x)
+
+instance [h₁ : Continous f₁] [h₂ : Continous f₂] : Continous (Prod.corec f₁ f₂ : A → B × C) where
+  mono :=  fun _ _ h => Prod.le_def.mpr ⟨ h₁.mono h, h₂.mono h, ⟩
+  preserves_lubs c hc := Prod.mk.inj_iff.mpr ⟨h₁.preserves_lubs _ _, h₂.preserves_lubs _ _⟩
 

@@ -4,6 +4,7 @@ import LeanScratch.Domain.Lub
 
 namespace Dom
 
+section
 variable [ida : PartialOrder α]
 
 abbrev CT (α : Type _) := Nat → Nat → α
@@ -16,9 +17,9 @@ variable {ct : CT α} [ hct : ChainTrellis ct ]
 def CT.x (x : Nat) : C α := (fun y => ct x y)
 def CT.y (y : Nat) : C α := (fun x => ct x y)
 
-instance CT.hx (x : Nat) : Chain (ct.x x) where
+instance ChainTrellis.x (x : Nat) : Chain (ct.x x) where
   chain := fun y => hct.chain _ _ _ _ (Nat.le_refl x) (Nat.le_succ y)
-instance CT.hy (y : Nat) : Chain (ct.y y) where
+instance ChainTrellis.y (y : Nat) : Chain (ct.y y) where
   chain := fun x => hct.chain _ _ _ _ (Nat.le_succ x) (Nat.le_refl y)
 
 def ChainTrellis.xlubC [v : ChainTrellis ct]
@@ -94,4 +95,5 @@ def ChainTrellis.lubCEq
       refine (hLubEy n).lub_least _ fun n1 => ?_
       apply ida.le_trans _ _ _ _ (hlubx.lub_bound n1)
       exact (hLubEx n1).lub_bound n)
+end
 
