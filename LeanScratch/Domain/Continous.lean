@@ -4,7 +4,7 @@ namespace Dom
 
 variable [dd : Dom D] [de : Dom E] (f : D → E)
 
-class Continous where
+class Continous : Prop where
   mono : Monotone f
   preserves_lubs (c : C D) (hc : Chain c) :
     f (complete c hc) = complete (c.map f) (hc.map mono)
@@ -32,7 +32,16 @@ instance [x : Continous.Helper f] : Continous f where
       Continous.Helper.mono
       (x.preserves_lubs _ _)
 
-
 class StrictContinous (f : D → E) extends Continous f where
   bot_to_bot : f dd.bot = de.bot
+
+instance : StrictContinous (id : D → D) where
+  mono _ _ := id
+  bot_to_bot := rfl
+  preserves_lubs _ _ := rfl
+
+instance {v : D} : Continous (Function.const E v) where
+  mono _ _ _ := le_refl _
+  preserves_lubs _ _ := complete_const.symm
+
 
