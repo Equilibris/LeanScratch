@@ -62,7 +62,7 @@ def complete_mono
     : complete dn hd ≤ complete en he :=
   Lub.mono (hdlub := complete_lub _ hd) (helub := complete_lub _ he) h
 
-def complete_const {d : α} {p : _}
-    : complete (fun _ => d) p = d :=
-  Lub.allEq (complete_lub _ p) (Lub.const $ fun _ => rfl)
+def complete_const {d : α}
+    : complete (fun _ => d) (⟨fun _ => le_refl _⟩) = d :=
+  Lub.allEq (complete_lub _ _) (Lub.const $ fun _ => rfl)
 
