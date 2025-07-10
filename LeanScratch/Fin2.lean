@@ -2,6 +2,9 @@ import Mathlib.Data.Fin.Fin2
 import Mathlib.Util.WhatsNew
 import LeanScratch.Fintype2
 
+deriving instance Repr for Fin2
+deriving instance DecidableEq for Fin2
+
 instance Fin2.decEq : DecidableEq (Fin2 n) := fun
   | .fz, .fs _ | .fs _, .fz => .isFalse Fin2.noConfusion
   | .fz, .fz => .isTrue rfl
@@ -21,3 +24,7 @@ instance Fin2.instFintype2 : Fintype2 (Fin2 n) := match n with
 instance {v : Fin n} : Fin2.IsLT (v.val) n := ⟨v.isLt⟩
 
 def Fin2.ofFin (fin : Fin n) : Fin2 n := Fin2.ofNat' fin.val
+
+def List.getFin2 : (l : List α) → Fin2 l.length → α
+  | hd :: _, .fz => hd
+  | _ :: tl, .fs x => tl.getFin2 x
