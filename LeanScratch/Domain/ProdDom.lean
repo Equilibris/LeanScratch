@@ -99,5 +99,5 @@ def _root_.Prod.corec (f₁ : D → D₁) (f₂ : D → D₂) (x : D) : D₁ × 
 
 instance [h₁ : Continous f₁] [h₂ : Continous f₂] : Continous (Prod.corec f₁ f₂ : A → B × C) where
   mono :=  fun _ _ h => Prod.le_def.mpr ⟨ h₁.mono h, h₂.mono h, ⟩
-  preserves_lubs c hc := Prod.mk.inj_iff.mpr ⟨h₁.preserves_lubs _ _, h₂.preserves_lubs _ _⟩
+  preserves_lubs _ _ := Prod.mk.inj_iff.mpr ⟨h₁.preserves_lubs _ _, h₂.preserves_lubs _ _⟩
 

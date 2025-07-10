@@ -14,11 +14,11 @@ def Lub.allEq
     (ha : Lub c a)
     (hb : Lub c b)
     : a = b := by
-    rcases ha with ⟨a_bound, a_least⟩
-    rcases hb with ⟨b_bound, b_least⟩
-    exact ida.le_antisymm _ _
-      (a_least _ b_bound)
-      (b_least _ a_bound)
+  rcases ha with ⟨a_bound, a_least⟩
+  rcases hb with ⟨b_bound, b_least⟩
+  exact ida.le_antisymm _ _
+    (a_least _ b_bound)
+    (b_least _ a_bound)
 
 instance : Subsingleton (PSigma (Lub c)) where
   allEq a b := by
@@ -71,32 +71,4 @@ def Lub.contR
   lub_least := fun x h =>
     hlub.lub_least x fun n => by rw [←hCont]; exact h _
 
-def Lub.finite.lemma_bound :
-    {ls pf: _} →
-    List.Pairwise LE.le ls →
-    c n ∈ ls →
-    c n ≤ ls.getLast pf
-  | [], pf, .nil, _ => False.elim $ pf rfl
-  | hd :: [], _, .cons _ .nil, hmem => by simp_all
-  | hd :: b :: tl, _, .cons hle cont, hmem => by
-    obtain rfl|hmem := List.mem_cons.mp hmem
-    · exact hle _ $ List.mem_of_mem_getLast? rfl
-    · change _ ≤ (b :: tl).getLast _
-      exact lemma_bound cont hmem
-def Lub.finite (h : c.finite)
-  : Lub c (h.ls.getLast $ List.ne_nil_of_mem $ h.allMem 0) where
-  lub_bound := fun n => finite.lemma_bound h.ordered (h.allMem n)
-  lub_least x h' :=
-    have : ∀ i ∈ h.ls, i ≤ x := fun i hv => by
-      rcases h.memAll i hv with ⟨w, rfl⟩
-      exact h' w
-    this (h.ls.getLast _) $ List.getLast_mem _
-
-def Lub.finite_mem
-    (h : c.finite)
-    (hl : Lub c lub)
-    : ∃ n, c n = lub :=
-  h.memAll lub $ by
-    obtain rfl := Lub.allEq (finite h) hl
-    apply List.getLast_mem
 

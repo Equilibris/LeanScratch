@@ -92,7 +92,7 @@ instance toDom
     (h : Admissible f Φ)
     : Dom (Subtype Φ) where
   bot := ⟨⊥, h.hBot⟩
-  bot_le x := bot_le x.val
+  bot_le _ := bot_le
   complete c hc :=
     let   c' := c.map Subtype.val
     have hc' := hc.map monotone_val
@@ -130,13 +130,19 @@ theorem scott
     : Φ f.fix :=
   (congrArg Φ (fix_mem h.toCcss)).mpr $ Subtype.prop _
 
+-- TODO: Add more of the constructs from page177
+
 instance union (hs : Admissible f S) (ht : Admissible f T)
     : Admissible f (Set.instUnion.union S T) where
   hBot := .inl hs.hBot
   hStab
     | x, .inl a => .inl $ hs.hStab x a
     | x, .inr a => .inr $ ht.hStab x a
-  hLub c hc holds := sorry
+  hLub c hc holds :=
+    have hs := hs.hLub c hc
+    have ht := ht.hLub c hc
+    -- TODO
+    sorry
 
 instance inter {S : I → β → Prop} (h : ∀ x, Admissible f (S x))
     : Admissible f (∀ i, S i ·) where
@@ -146,6 +152,4 @@ instance inter {S : I → β → Prop} (h : ∀ x, Admissible f (S x))
     (h i).hLub
       c hc
       fun n => holds n i
-
-
 

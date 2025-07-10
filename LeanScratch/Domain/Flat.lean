@@ -3,6 +3,7 @@ import LeanScratch.Domain.ChainTrellis
 import LeanScratch.Domain.Dom
 import LeanScratch.Domain.PartialFunc
 import LeanScratch.Domain.Continous
+import LeanScratch.Domain.Finite
 
 namespace Dom
 
@@ -13,8 +14,18 @@ inductive Flat.Le : Flat α → Flat α → Prop
   | bot_obj : Le .bot $ .obj _
   | obj_obj : Le (.obj a) (.obj a)
 
+inductive Flat.Lt : Flat α → Flat α → Prop
+  | bot_obj : Lt .bot $ .obj _
+
 instance : LE (Flat α) := ⟨Flat.Le⟩
+instance : LT (Flat α) := ⟨Flat.Lt⟩
 instance : PartialOrder (Flat α) where
+  lt_iff_le_not_le _ _ := ⟨
+    fun | .bot_obj => ⟨.bot_obj, fun h => by cases h⟩,
+    fun
+      | ⟨.bot_obj, _⟩ => .bot_obj
+      | ⟨.bot_bot, h⟩ | ⟨.obj_obj, h⟩ => False.elim $ h (by solve_by_elim)
+  ⟩
   le_refl | .bot => .bot_bot | .obj _ => .obj_obj
   le_trans
     | .bot, .bot, .bot, .bot_bot, .bot_bot => .bot_bot
@@ -26,7 +37,7 @@ instance : PartialOrder (Flat α) where
     | .bot, .bot, .bot_bot, .bot_bot => rfl
     | .obj _, .obj _, .obj_obj, .obj_obj => rfl
 
-def Flat.finite (c : C $ Flat α) (hc : Chain c) : ∃ _ : c.finite, True := by
+def Flat.finite (c : C $ Flat α) (hc : Chain c) : ∃ _ : c.Finite, True := by
   cases h : c 0
   case obj v =>
     refine ⟨⟨[.obj v], .cons (fun _ x => by cases x) .nil, fun n => ?_, fun  x mem => ?_⟩, .intro⟩
@@ -43,7 +54,7 @@ def Flat.finite (c : C $ Flat α) (hc : Chain c) : ∃ _ : c.finite, True := by
   · rcases x with ⟨nw, w,p⟩
     refine ⟨⟨[.bot, .obj w], .cons ?_ $ .cons (fun _ x => by cases x) .nil, fun n => ?_, fun  x mem => ?_⟩, .intro⟩
     all_goals simp only [List.mem_cons, forall_eq, List.mem_singleton, List.mem_nil_iff, or_false] at *
-    · exact Flat.Le.bot_obj
+    · exact Flat.Lt.bot_obj
     · induction n
       · exact .inl h
       next n ih =>
@@ -69,13 +80,12 @@ def Flat.finite (c : C $ Flat α) (hc : Chain c) : ∃ _ : c.finite, True := by
     refine ⟨⟨[.bot], .cons (fun _ x => by cases x) .nil, ?_, ?_⟩, .intro⟩
     <;> simp_all
 
-instance : LawfulBot (Flat α) where
+instance : OrderBot (Flat A) where
   bot := .bot
   bot_le | .bot => .bot_bot | .obj _ => .bot_obj
 
-noncomputable instance : Dom (Flat α) where
-  bot_le := instLawfulBotFlat.bot_le
-  complete_lub c hc := Lub.finite $ Classical.choose $ Flat.finite c hc
+noncomputable instance : FiniteDom (Flat α) where
+  chain_fin c hc := Classical.choose $ Flat.finite c hc
 
 def Flat.domainLift (f : PFun A B) : Flat A → Flat B
   | .bot => .bot
@@ -104,7 +114,7 @@ noncomputable instance : Continous.Helper (Flat.domainLift f) where
     cases h : club
     <;> dsimp [Flat.domainLift]
     any_goals split
-    any_goals exact bot_le _
+    any_goals exact bot_le
     rename_i v _ x heq
     have ⟨w, .intro⟩ := Flat.finite c hc
     have ⟨n, p⟩ := Lub.finite_mem w hclub

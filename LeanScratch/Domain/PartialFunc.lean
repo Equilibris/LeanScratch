@@ -64,7 +64,7 @@ noncomputable def PFun.lub (c : C $ PFun A B) : PFun A B := fun a =>
   | .isTrue  h => c (Classical.choose h) a
   | .isFalse _ => .none
 
-instance : LawfulBot (PFun A B) where
+instance : OrderBot (PFun A B) where
   bot _ := .none
   bot_le _ _ _ := Option.noConfusion
 

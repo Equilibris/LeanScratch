@@ -44,4 +44,3 @@ instance {v : D} : Continous (Function.const E v) where
   mono _ _ _ := le_refl _
   preserves_lubs _ _ := complete_const.symm
 
-

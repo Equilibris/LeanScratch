@@ -2,10 +2,7 @@ import Mathlib.Order.Lattice
 import LeanScratch.Domain.Lub
 import LeanScratch.Domain.ChainTrellis
 
-class Dom.LawfulBot (α : Type _) extends Bot α, LE α where
-  bot_le (x : α) : ⊥ ≤ x
-
-class Dom (α : Type _) extends PartialOrder α, Dom.LawfulBot α where
+class Dom (α : Type _) extends PartialOrder α, OrderBot α where
   complete (c : Dom.C α) (hc : Dom.Chain c) : α
   complete_lub (c : Dom.C α) (hc : Dom.Chain c) : Dom.Lub c (complete c hc)
 

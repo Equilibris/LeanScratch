@@ -29,8 +29,8 @@ instance : PartialOrder (CFunc A B) where
       rfl
 
 instance : Dom (CFunc A B) where
-  bot := ⟨fun _ => ⊥, ⟨monotone_const, fun c hc => complete_const.symm⟩⟩
-  bot_le x v := bot_le (x v)
+  bot := ⟨fun _ => ⊥, ⟨monotone_const, fun c _ => complete_const.symm⟩⟩
+  bot_le _ _ := bot_le
   complete c hc := ⟨
     fun v => complete (c · v) ⟨(hc.chain · v)⟩,
     ⟨
@@ -55,7 +55,7 @@ instance : Dom (CFunc A B) where
   }
 
 def fix (f : CFunc A A) : A := complete (Nat.repeat f · ⊥) ⟨p⟩
-  where p | 0   => bot_le _ | n+1 => f.continous.mono (p n)
+  where p | 0   => bot_le | n+1 => f.continous.mono (p n)
 
 instance fix_is_lpfp {f : CFunc A A} : LeastPreFixedPoint f.fix f.f where
   fix := by
@@ -71,13 +71,11 @@ instance fix_is_lpfp {f : CFunc A A} : LeastPreFixedPoint f.fix f.f where
   least := fun {d} pfp =>
     complete_least
       d
-      (Nat.rec
-        (bot_le _)
+      (Nat.rec bot_le
         (λ _ ih ↦ le_trans (f.continous.mono ih) pfp.fix))
 
 def fix.mono : Monotone (fix : CFunc A A → A) := fun a b h =>
-  complete_mono (Nat.rec
-    (bot_le _)
+  complete_mono (Nat.rec bot_le
     (fun n ih =>
       le_trans
         (h (n.repeat a.f ⊥))
@@ -108,7 +106,7 @@ instance : Continous.Helper (fix : CFunc A A → A) where
     intro n
     generalize_proofs p₁
     induction n
-    · exact bot_le _
+    · exact bot_le
     case a.succ n ih =>
       change _ ≤ complete (fix $ c ·) _
       apply complete_least
