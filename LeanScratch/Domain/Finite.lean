@@ -1,87 +1,103 @@
 import Mathlib.Order.Basic
 import Mathlib.Data.Finset.Basic
+import Mathlib.Data.List.Sort
 import LeanScratch.Domain.Dom
 import LeanScratch.Domain.Lub
 import LeanScratch.Domain.Continous
+import LeanScratch.Fin2
 
 namespace Dom
 
 namespace C
 
-variable [ida : PartialOrder α]
+variable [ida : PartialOrder α] {c : C α}
 
+structure Finite' (c : C α) : Type _ where
+   ls : List α
+   ordered : List.Sorted ida.lt ls
+   allMem n : c n ∈ ls
+   memAll x (h : x ∈ ls) : ∃ n, c n = x
+
+def Finite'.nodup (f : Finite' c) : f.ls.Nodup :=
+  f.ordered.rec .nil
+    (λ all_lt _ ih ↦ .cons (λ h ↦ (lt_self_iff_false _).mp $ all_lt _ h) ih)
+
+-- TODO: Migrate this all to a function like extractor, make it computable
 structure Finite (c : C α) : Type _ where
   ls : List α
   ordered : List.Pairwise ida.lt ls
-  allMem n : c n ∈ ls
-  memAll x (h : x ∈ ls) : ∃ n, c n = x
+
+  extractor (n : Nat) : Fin2 ls.length
+  extractor_agrees (n : Nat) : c n = ls.getFin2 (extractor n)
+  sur : Function.Surjective extractor
 
 namespace Finite
 
-variable {c : C α}
+section equiv
+
+noncomputable def extractor.of
+    {ls : List α}
+    (allMem : ∀ n, c n ∈ ls)
+    (n : Nat)
+    : Fin2 ls.length :=
+  Classical.choose $ Fin2.ofMem $ allMem n
+
+theorem extractor_agrees.of
+    {ls : List α}
+    {allMem : ∀ n, c n ∈ ls}
+    (n : Nat)
+    : c n = ls.getFin2 (extractor.of allMem n) :=
+  Classical.choose_spec (p := λ x ↦ c n = ls.getFin2 x) $ Fin2.ofMem $ allMem n
 
 def nodup (f : Finite c) : f.ls.Nodup :=
   f.ordered.rec .nil
     (λ all_lt _ ih ↦ .cons (λ h ↦ (lt_self_iff_false _).mp $ all_lt _ h) ih)
 
-noncomputable def extractor {x : α} (fin : Finite c) n (h : x ∈ fin.ls.get? n) : Nat :=
-  Classical.choose (fin.memAll x $ List.get?_mem h)
+theorem sur.of
+    {ls : List α}
+    {allMem : ∀ n, c n ∈ ls}
+    (nodup : ls.Nodup)
+    (memAll : (x : α) → x ∈ ls → ∃ n, c n = x)
+    : Function.Surjective (extractor.of allMem) := fun res =>
+  have ⟨w, p⟩ := memAll _ $ res.getFin2_mem
+  ⟨w, Fin2.getFin2_Nodup_Injective nodup $ (extractor_agrees.of _).symm.trans p⟩
 
-theorem extractor.val {fin : Finite c} {h} : c (extractor (x := x) fin n' h) = x :=
-  Classical.choose_spec (fin.memAll x $ List.get?_mem h)
+noncomputable def ofFinite' (f : Finite' c) : Finite c where
+  ls := f.ls
+  ordered := f.ordered
+  extractor := extractor.of f.allMem
+  extractor_agrees := extractor_agrees.of
+  sur := sur.of f.nodup f.memAll
+
+def memAll (fin : Finite c) (x : α) (hmem : x ∈ fin.ls) : ∃ n, c n = x := by
+  obtain ⟨w, rfl⟩ := Fin2.ofMem hmem
+  have ⟨w, h⟩ := fin.sur w
+  obtain rfl := h.symm
+  exact ⟨w, fin.extractor_agrees w⟩
+
+def allMem (fin : Finite c) (n : Nat) : c n ∈ fin.ls := by
+  rw [fin.extractor_agrees n]
+  exact Fin2.getFin2_mem (fin.extractor n)
+
+end equiv
 
 def not_empty
     (fd : C.Finite c)
     : fd.ls ≠ [] :=
   List.ne_nil_of_mem $ fd.allMem 0
 
-def ae.lemma
-    {c : C α}
-    [hc : Chain c]
-    : {la lb : List α}
-    → List.Pairwise LT.lt la
-    → List.Pairwise LT.lt lb
-    → (∀ (n : ℕ), c n ∈ la)
-    → (∀ (n : ℕ), c n ∈ lb)
-    → (∀ x ∈ la, ∃ n, c n = x)
-    → (∀ x ∈ lb, ∃ n, c n = x)
-    → la = lb
-  | _, [], _, _, _, hm, _, _ | [], _, _, _, hm, _, _, _ => 
-    False.elim $ (List.mem_nil_iff _).mp $ hm 0
-  | ha :: [], hb :: _ :: _,
-    .cons la pwla, .cons lb pwlb,
-    ma, mb, _, h
-  | hb :: _ :: _, ha :: [],
-    .cons lb pwlb, .cons la pwla,
-    mb, ma, h, _ => by
-    simp_all only [List.not_mem_nil, implies_true, List.mem_cons,
-      forall_eq_or_imp, forall_const, or_false, exists_const]
-    rcases h with ⟨rfl, rfl, _⟩
-    exact False.elim $ (lt_self_iff_false ha).mp lb.left
-  | ha :: [], hb :: [],
-    .cons la pwla, .cons lb pwlb,
-    ma, mb, _, _ => by
-    obtain rfl := (List.mem_singleton.mp $ ma 0).symm.trans (List.mem_singleton.mp $ mb 0)
-    rfl
-  | ha :: ca :: ta, hb :: cb :: tb,
-    .cons la pwla, .cons lb pwlb,
-    ama, amb, maa, mab => by
-    obtain ⟨rfl, rfl⟩ := (List.cons.injEq _ _ _ _).mp $ ae.lemma
-      (c := c.skip 1)
-      pwla pwlb
-      sorry sorry
-      sorry sorry
-    simp_all
-    sorry
 end C.Finite
 
-/- instance {c : C α} [hc : Chain c] : Subsingleton (C.Finite c) where -/
-/-   allEq a b := by -/
-/-     rcases a with ⟨al, oa, ama, maa⟩ -/
-/-     rcases b with ⟨bl, ob, amb, mab⟩ -/
-/-     obtain rfl : al = bl := -/
-/-       C.Finite.lemma oa ob ama amb maa mab -/
-/-     rfl -/
+instance [PartialOrder α] {c : C α} [hc : Chain c] : Subsingleton (C.Finite c) where
+  allEq a b := by
+    rcases a with ⟨al, oa, fa, ma, sa⟩
+    rcases b with ⟨bl, ob, fb, mb, sb⟩
+    have : ∀ n, al.getFin2 (fa n) = bl.getFin2 (fb n) := fun n =>
+      (ma n).symm.trans (mb n)
+    have : al = bl :=
+      sorry
+    stop
+    rfl
 
 namespace Lub
 

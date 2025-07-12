@@ -10,6 +10,40 @@ def List.getFin2 : (l : List α) → Fin2 l.length → α
   | _ :: tl, .fs x => tl.getFin2 x
 
 namespace Fin2
+def getFin2_mem : {l : List α} → (idx : Fin2 l.length) → l.getFin2 idx ∈ l
+  | _ :: _, .fz => .head _
+  | h :: _, .fs idx => .tail h $ idx.getFin2_mem
+
+def ofMem : {l : List α} → x ∈ l → ∃ v, x = l.getFin2 v
+  | [], h => False.elim $ (List.mem_nil_iff _).mp h
+  | _ :: _, .head _ => ⟨.fz, rfl⟩
+  | _ :: _, .tail _ h =>
+    have ⟨v, x⟩ := Fin2.ofMem h
+    ⟨.fs v, x⟩
+
+/- def x : {l : List α} → Fin2 l.length → l.get -/
+
+def toNat_eq : {n : Nat} → {a b : Fin2 n} → a.toNat = b.toNat → a = b
+  | _+1, .fs _, .fs _, heq => 
+    congr rfl $ toNat_eq $ (Nat.succ.injEq _ _).mp heq
+  | _+1, .fz, .fz, _ => rfl
+
+def toNat_lt : {n : Nat} → {f : Fin2 n} → f.toNat < n
+  | _+1, .fs _ => Nat.succ_le_succ $ toNat_lt
+  | _+1, .fz => Nat.zero_lt_succ _
+
+def get?_toNat : {ls : List α} → {idx : Fin2 ls.length} → ls.get? idx.toNat = .some (ls.getFin2 idx)
+  | _ :: _, .fz => rfl
+  | _ :: _, .fs idx => get?_toNat (idx := idx)
+
+def getFin2_Nodup_Injective {ls : List α} (nd : ls.Nodup) : Function.Injective $ ls.getFin2 := fun a b heq => by
+  cases h : compare a.toNat b.toNat
+  <;> simp only [Nat.compare_eq_lt, Nat.compare_eq_gt, Nat.compare_eq_eq] at h
+  any_goals have := List.nodup_iff_get?_ne_get?.mp nd _ _ h toNat_lt
+  any_goals rw [get?_toNat, get?_toNat] at this
+  · exact False.elim (this (congrArg some heq))
+  · exact toNat_eq h
+  · exact False.elim (this (congrArg some heq.symm))
 
 instance decEq : DecidableEq (Fin2 n) := fun
   | .fz, .fs _ | .fs _, .fz => .isFalse Fin2.noConfusion
@@ -31,38 +65,21 @@ instance {v : Fin n} : Fin2.IsLT (v.val) n := ⟨v.isLt⟩
 
 def ofFin (fin : Fin n) : Fin2 n := Fin2.ofNat' fin.val
 
-inductive Le : {n : Nat} → Fin2 n → Fin2 n → Prop
-  | rfl : Le .fz .fz
-  | fz : Le .fz (.fs v)
-  | fs : Le a b → Le (.fs a) (.fs a)
-inductive Lt : {n : Nat} → Fin2 n → Fin2 n → Prop
-  | fz : Lt .fz (.fs v)
-  | fs : Lt a b → Lt (.fs a) (.fs a)
+def Le {n : Nat} (a b : Fin2 n) : Prop :=
+  a.toNat ≤ b.toNat
 
 instance : LE (Fin2 n) := ⟨Le⟩
-instance : LT (Fin2 n) := ⟨Lt⟩
 
 instance : Bot (Fin2 (n+1)) where
   bot := .fz
 
-def bot_le : {n : Fin2 (n + 1)} → ⊥ ≤ n | .fz => .rfl | .fs _ => .fz
-
 instance : OrderBot (Fin2 (n+1)) where
-  bot_le _ := bot_le
-
-def LE.refl : ∀ (x : Fin2 n), x ≤ x
-  | .fz => .rfl
-  | .fs v => .fs $ refl v
-
-def LE.trans : {a b c : Fin2 n} → a ≤ b → b ≤ c → a ≤ c
-  | _,_,_, .rfl, x => x
-  | _,_,_, .fs ha, b => sorry
-  | _,_,_, .fz, .fs b => bot_le
+  bot_le _ := Nat.zero_le _
 
 instance : PartialOrder (Fin2 n) where
-  lt := instLT_leanScratch.lt
-  lt_iff_le_not_le := sorry
-  le_refl := LE.refl
-  le_trans := sorry
-  le_antisymm := sorry
+  le_refl _ := Nat.le_refl _
+  le_trans _ _ _ := Nat.le_trans
+  le_antisymm a b ha hb := toNat_eq $ Nat.le_antisymm ha hb
+
+
 
