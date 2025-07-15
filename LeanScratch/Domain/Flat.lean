@@ -37,7 +37,7 @@ instance : PartialOrder (Flat α) where
     | .bot, .bot, .bot_bot, .bot_bot => rfl
     | .obj _, .obj _, .obj_obj, .obj_obj => rfl
 
-def Flat.finite (c : C $ Flat α) (hc : Chain c) : ∃ _ : c.Finite, True := by
+def Flat.finite (c : C $ Flat α) (hc : Chain c) : ∃ _ : c.Finite', True := by
   cases h : c 0
   case obj v =>
     refine ⟨⟨[.obj v], .cons (fun _ x => by cases x) .nil, fun n => ?_, fun  x mem => ?_⟩, .intro⟩
@@ -85,7 +85,7 @@ instance : OrderBot (Flat A) where
   bot_le | .bot => .bot_bot | .obj _ => .bot_obj
 
 noncomputable instance : FiniteDom (Flat α) where
-  chain_fin c hc := Classical.choose $ Flat.finite c hc
+  chain_fin c hc := .ofFinite' $ Classical.choose $ Flat.finite c hc
 
 def Flat.domainLift (f : PFun A B) : Flat A → Flat B
   | .bot => .bot
@@ -116,7 +116,7 @@ noncomputable instance : Continous.Helper (Flat.domainLift f) where
     any_goals split
     any_goals exact bot_le
     rename_i v _ x heq
-    have ⟨w, .intro⟩ := Flat.finite c hc
+    have w := C.Finite.ofFinite' $ Classical.choose $ Flat.finite c hc
     have ⟨n, p⟩ := Lub.finite_mem w hclub
     apply le_trans _ (hclub'.lub_bound n)
     simp [Flat.domainLift, C.map, p, h, heq]

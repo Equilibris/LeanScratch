@@ -1,5 +1,6 @@
 import Mathlib.Logic.Equiv.Defs
 import Mathlib.Tactic
+import LeanScratch.HEq
 
 inductive ListFunctor (α ρ : Type _) : Type _
   | nil
@@ -125,19 +126,6 @@ def CoList.corec (f : ρ → ListFunctor α ρ) (content : ρ) : CoList α where
   f     := (2 ^ ·)
   obj   := fun _ => corec.impl f content
   cryst := (corec.proof $ Nat.pow_lt_pow_of_lt .refl $ Nat.lt_add_one ·)
-
-@[elab_as_elim]
-def HEq.dependentRw
-    {α : Sort _} {a b : α}
-    {submotive : α → Sort _} {motive : (base : α) → submotive base → Sort _}
-    {x : submotive a} {y : submotive b}
-    (hParEq : a = b)
-    (hEq : HEq x y)
-    (src : motive a x)
-    : motive b y := by
-  subst hParEq
-  subst hEq
-  exact src
 
 def CoList.dest.ex1
     {α : Type u} {n : ℕ}
