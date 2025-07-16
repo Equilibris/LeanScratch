@@ -172,12 +172,19 @@ def FiniteDom.complete_eq_chain_fin {α} [Dom α] {c : C α} {hc : Chain c} [fd 
 
 variable [ida : Dom α] {c : C α} {hc : Chain c}
 
+def C.Finite.complete_last
+    (c : C α) hc
+    (fd : Finite c)
+    : complete c hc
+    = fd.ls.getLast (List.ne_nil_of_mem $ fd.allMem 0) :=
+  Lub.allEq (complete_lub c hc) (Lub.finite fd)
+
 def FiniteDom.complete_last
     [fd : FiniteDom α]
     (c : C α) hc
     : complete c hc
     = (fd.chain_fin c hc).ls.getLast (List.ne_nil_of_mem $ (fd.chain_fin c hc).allMem 0) :=
-  Lub.allEq (complete_lub c hc) (Lub.finite (fd.chain_fin c hc))
+  C.Finite.complete_last c hc (fd.chain_fin c hc)
 
 open List in
 section
@@ -223,7 +230,7 @@ def not_empty_pw
     → ls ≠ []
     → ls.pwFilter R ≠ []
   | [], h => False.elim $ h rfl
-  | [x], _ => List.noConfusion
+  | [_], _ => List.noConfusion
   | x :: b :: l, _ =>
     if h : ∀ y ∈ pwFilter R (b :: l), R x y then
       pwFilter_cons_of_pos h ▸ List.noConfusion
@@ -277,70 +284,58 @@ def nodup_mono_sorted
   have nd := List.nodup_dedup $ la.map f
   sorted_of_nd_sorted nd sl
 
-def FiniteDom.ls_map
+noncomputable def C.Finite.map
+    [DecidableEq β]
+    [PartialOrder α]
+    [PartialOrder β]
+    {f : α → β}
+    (hMono : Monotone f)
+    (fda : c.Finite)
+    : (c.map f).Finite :=
+  ofFinite' {
+    ls := (fda.ls.map f).dedup
+    ordered := nodup_mono_sorted hMono fda.ordered
+    allMem := fun n =>
+      List.mem_dedup.mpr
+      $ List.mem_map.mpr $ ⟨c n, fda.allMem n, rfl⟩
+    memAll := by
+      intro x hmem
+      rw [List.mem_dedup, List.mem_map] at hmem
+      rcases hmem with ⟨w, hmem, rfl⟩
+      obtain ⟨w, rfl⟩ := fda.memAll _ hmem
+      exists w
+  }
+
+def C.Finite.ls_map
     {α β}
     [PartialOrder α]
     [PartialOrder β]
-    [DecidableEq β]
-    [fda : FiniteDom α]
-    [fdb : FiniteDom β]
-    (c : C α) (hc : Chain c)
+    [DecidableEq β] {c : C α}
     (f : α → β)
     (hMono : Monotone f)
-    : (fdb.chain_fin (c.map f) (hc.map hMono)).ls
-    = ((fda.chain_fin c hc).ls.map f).dedup := by
-  generalize chain_fin (c.map f) _ = fdb, chain_fin c hc = fda
-  have an := fda.nodup
-  have bn := fdb.nodup
-  rcases fda with ⟨la, oa, fa, ma, sa⟩
-  rcases fdb with ⟨lb, ob, fb, mb, sb⟩
-  dsimp at *
-  apply List.eq_of_perm_of_sorted ?perm ob (nodup_mono_sorted hMono oa)
-  case perm =>
-    apply (List.perm_ext_iff_of_nodup bn (List.nodup_dedup _)).mpr fun el => ?_
-    rw [List.mem_dedup, List.mem_iff_get, List.mem_iff_get]
-
-    have p₁ := (List.length_map la f)
-    constructor
-    <;> rintro ⟨w, h⟩
-    · obtain ⟨w, rfl⟩ := sb w
-      specialize mb w
-      obtain rfl := mb.trans h
-      exists cast (congr rfl p₁.symm) (fa w)
-      rw [List.get_map]
-      congr
-      rw [←(ma w).symm]
-      congr
-      exact cast_heq (congr rfl p₁.symm) (fa w)
-    · obtain ⟨w', p⟩ := sa (cast (congr rfl p₁) w)
-      specialize ma w'
-      subst h
-      rw [List.get_map]
-      exists fb w'
-      exact (mb w').symm.trans
-        $ congr (rfl (a := f))
-        $ ma.trans
-        $ congr rfl
-        $ p.trans
-        $ cast_eq_iff_heq.mpr
-        $ (Fin.heq_ext_iff p₁).mpr rfl
+    (fdb : (c.map f).Finite)
+    (fda : c.Finite)
+    : fdb.ls = (fda.ls.map f).dedup :=
+  Subsingleton.allEq fdb (C.Finite.map hMono fda) ▸ rfl
 end
 
 section
 
 variable [Dom D] [Dom E]
 
+@[simp]
+def _root_.List.getLast_writer : {a b : List α} → {p : _} → (h : a = b) → a.getLast p = b.getLast (h ▸ p)
+  | [], [], _, .refl _ | [_], [_], _, .refl _ => rfl
+  | _ :: b :: t, _ :: _ :: _, _, .refl _ =>
+    getLast_writer (a := b :: t) (b := b :: t) rfl
+
 def Continous.finite [DecidableEq E] [dd : FiniteDom D] [de : FiniteDom E] {f : D → E} (fmono : Monotone f) : Continous f where
   mono := fmono
   preserves_lubs c hc := by
-    repeat rw [FiniteDom.complete_eq_chain_fin]
-    have eq' := FiniteDom.ls_map c hc f fmono
-    have pnempty := C.Finite.not_empty (FiniteDom.chain_fin (c.map f) (Chain.map fmono))
-    have pne' : ((FiniteDom.chain_fin c hc).ls.map f).dedup ≠ [] :=
-      not_empty_pw $ fun x =>
-        C.Finite.not_empty (FiniteDom.chain_fin c hc) $ List.map_eq_nil.mp x
-    have : (FiniteDom.chain_fin (c.map f) (Chain.map fmono)).ls.getLast pnempty = ((FiniteDom.chain_fin c hc).ls.map f).dedup.getLast pne' := by congr
-    simp only [this, List.dedup, pw_filter_last, List.getLast_map]
-
+    have eq' := C.Finite.ls_map f fmono (de.chain_fin _ (hc.map fmono)) (dd.chain_fin c hc)
+    rw [FiniteDom.complete_eq_chain_fin, FiniteDom.complete_eq_chain_fin, List.getLast_writer eq']
+    unfold List.dedup
+    rw [pw_filter_last, List.getLast_map]
 end
+
 
