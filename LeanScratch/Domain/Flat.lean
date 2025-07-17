@@ -8,6 +8,7 @@ import LeanScratch.Domain.Finite
 namespace Dom
 
 inductive Flat (α : Type _) | bot | obj (v : α)
+deriving DecidableEq
 
 inductive Flat.Le : Flat α → Flat α → Prop
   | bot_bot : Le .bot .bot
@@ -104,21 +105,9 @@ def Flat.domainLift.mono : Monotone (domainLift f)
     exact .bot_bot
   | .bot,   .bot,    .bot_bot => .bot_bot
 
-noncomputable instance : Continous.Helper (Flat.domainLift f) where
-  mono := Flat.domainLift.mono
+variable [DecidableEq B]
 
-  preserves_lubs c hc := by
-    have hclub := complete_lub c hc
-    have hclub' := complete_lub (c.map (Flat.domainLift f)) (hc.map Flat.domainLift.mono)
-    generalize complete c _ = club, (complete (c.map (Flat.domainLift f)) _) = club' at hclub hclub'
-    cases h : club
-    <;> dsimp [Flat.domainLift]
-    any_goals split
-    any_goals exact bot_le
-    rename_i v _ x heq
-    have w := C.Finite.ofFinite' $ Classical.choose $ Flat.finite c hc
-    have ⟨n, p⟩ := Lub.finite_mem w hclub
-    apply le_trans _ (hclub'.lub_bound n)
-    simp [Flat.domainLift, C.map, p, h, heq]
+noncomputable instance  : Continous (Flat.domainLift f : Flat A → Flat B) :=
+  Continous.finite Flat.domainLift.mono
 
-noncomputable instance : StrictContinous (Flat.domainLift f) := ⟨rfl⟩
+noncomputable instance : StrictContinous (Flat.domainLift f : Flat A → Flat B) := ⟨rfl⟩

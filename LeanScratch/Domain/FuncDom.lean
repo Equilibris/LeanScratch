@@ -9,7 +9,7 @@ namespace Dom
 
 variable {A B C : _} [da : Dom A] [db : Dom B] [dc : Dom C]
 
-structure CFunc (A B : Type _) [Dom A] [Dom B] where
+structure CFunc (A B : Type _) [da : Dom A] [db : Dom B] where
   f : A → B
   continous : Continous f
 
@@ -115,7 +115,11 @@ instance : Continous.Helper (fix : CFunc A A → A) where
       apply (c n₁).continous.mono
       exact ih
 
-def curry (f : A × B → C) [hcf : Continous f] : CFunc A (CFunc B C) where
+def fix' : CFunc (CFunc A A) A where
+  f := fix
+  continous := by infer_instance
+
+def curry' (f : A × B → C) [hcf : Continous f] : CFunc A (CFunc B C) where
   f a := ⟨(f ⟨a, ·⟩), {
     mono := fun x y h => Continous.mono $ Prod.le_def.mpr ⟨le_refl _, h⟩,
     preserves_lubs := fun c hc => by
@@ -143,6 +147,14 @@ def curry (f : A × B → C) [hcf : Continous f] : CFunc A (CFunc B C) where
       congr
       exact complete_const.symm,
   }
+
+def swap (a : CFunc (A × B) C) : CFunc (B × A) C where
+  f := a ∘ Prod.corec Prod.snd Prod.fst
+  continous := by infer_instance
+
+def curry (f : CFunc (A × B) C) : CFunc A (CFunc B C) where
+  f := CFunc.curry' f
+  continous := by infer_instance
 
 def mp (f : CFunc A B × A) : B := f.fst f.snd
 
@@ -173,4 +185,33 @@ instance : Continous (CFunc.mp (A := A) (B := B)) where
       have : (c n).1.f ≤ (complete (fun x ↦ (c x).1) p₁).f := complete_bound (c := λ n ↦ (c n).1) n
       apply le_trans $ this _
       exact complete_bound (c := fun n => (complete (fun x ↦ (c x).1) p₁) (c n).2) n
+
+def mp' :  CFunc (CFunc A B × A) B where
+  f := mp
+  continous := by infer_instance
+
+def comp (bc : CFunc B C) (ab : CFunc A B) : CFunc A C where
+  f := bc.f ∘ ab.f
+  continous := by infer_instance
+
+def const (v : B) : CFunc A B where
+  f := Function.const A v
+  continous := {
+    mono := fun _ _ _ => le_refl _
+    preserves_lubs := fun c hc => by
+      change v = complete (fun _ => v) _
+      rw [complete_const]
+  }
+
+def corecP (a : CFunc A B) (b : CFunc A C) : CFunc A (B × C) where
+  f := Prod.corec a b
+  continous := by infer_instance
+
+def fst : CFunc (A × B) A where
+  f := Prod.fst
+  continous := by infer_instance
+
+def snd : CFunc (A × B) B where
+  f := Prod.snd
+  continous := by infer_instance
 

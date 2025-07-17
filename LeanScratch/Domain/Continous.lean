@@ -44,3 +44,17 @@ instance {v : D} : Continous (Function.const E v) where
   mono _ _ _ := le_refl _
   preserves_lubs _ _ := complete_const.symm
 
+
+instance
+    {A B C : _} [Dom A] [Dom B] [Dom C]
+    {bc : B → C} [bcC : Continous bc]
+    {ab : A → B} [abC : Continous ab]
+    : Continous (bc ∘ ab) where
+  mono := fun _ _ h => bcC.mono $ abC.mono h
+  preserves_lubs := fun c hc => by
+    change _ = complete (c.map ab |>.map bc) _
+    rw [←bcC.preserves_lubs _ (hc.map abC.mono),
+        ←abC.preserves_lubs _ hc]
+    rfl
+
+
