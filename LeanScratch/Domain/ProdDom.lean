@@ -38,6 +38,7 @@ instance {I : Type v} {p : I → Type u} [h : ∀ i, Dom (p i)] : Dom ((i : I) �
   }
 
 def two_arg_mono
+    {A B C} [Preorder A] [Preorder B] [Preorder C]
     {f : A × B → C}
     : (∀ b a a', a ≤ a' → f ⟨a, b⟩ ≤ f ⟨a', b⟩) ∧
       (∀ a b b', b ≤ b' → f ⟨a, b⟩ ≤ f ⟨a, b'⟩)

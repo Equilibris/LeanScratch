@@ -64,7 +64,7 @@ def Flat.finite (c : C $ Flat α) (hc : Chain c) : ∃ _ : c.Finite', True := by
             | .obj _, .obj _, .obj_obj => Flat.noConfusion $ ih.symm.trans h
             | .bot, .obj _, .bot_obj => ?_
             | .bot, .bot, .bot_bot => .inl rfl
-          simp_all
+          simp_all only [Nat.succ_eq_add_one, obj.injEq, false_or]
           have := hc.rel (n+1) nw
           rw [h', p] at this
           exact match this with | .inl .obj_obj | .inr .obj_obj => rfl

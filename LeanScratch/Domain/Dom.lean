@@ -63,3 +63,7 @@ def complete_const {d : α}
     : complete (fun _ => d) (⟨fun _ => le_refl _⟩) = d :=
   Lub.allEq (complete_lub _ _) (Lub.const $ fun _ => rfl)
 
+def complete_const' {d : α}
+    : complete (Function.const _ d) (⟨fun _ => le_refl _⟩) = d :=
+  Lub.allEq (complete_lub _ _) (Lub.const $ fun _ => rfl)
+

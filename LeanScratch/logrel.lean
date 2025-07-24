@@ -1,45 +1,24 @@
-import Mathlib.Data.Rel
-import Mathlib.Data.Finset.Basic
-import Mathlib.Tactic.Linarith.Frontend
-import LeanScratch.Fin2
-
-namespace PCF
 
 inductive Ty
-  | bool
   | nat
-  | arrow (arg res : Ty)
-deriving DecidableEq, Repr
+  | arrow (a b : Ty)
+
+mutual
+inductive Val : List Ty → Ty → Type
+  | z : Val Γ .nat
+  | s : Val Γ .nat → Val Γ .nat
+  | bvar idx : Val Γ (Γ.get idx)
+  | abs (ty : Ty) (body : Expr (ty :: Γ) ret) : Val Γ (.arrow ty ret)
 
 inductive Expr : List Ty → Ty → Type
-  | zero : Expr Γ .nat
-  | succ (e : Expr Γ .nat) : Expr Γ .nat
-  | pred (e : Expr Γ .nat) : Expr Γ .nat
+  | app  (fn : Val Γ (.arrow arg ret)) (arg : Val Γ arg) : Expr Γ ret
+  | lete (bd : Val (arg :: Γ) ret) (e : Val Γ arg) : Expr Γ ret
+  | rece (n : Val Γ .nat) (z : Val Γ τ ) (s : Val Γ (.arrow τ τ)) : Expr Γ τ
+end
 
-  | tt : Expr Γ .bool
-  | ff : Expr Γ .bool
-  | z? (e : Expr Γ .nat) : Expr Γ .bool
-
-  | eif (cond : Expr Γ .bool) (t f : Expr Γ τ) : Expr Γ τ
-
-  | bvar idx : Expr Γ (Γ.getFin2 idx)
-  | abs (ty : Ty) (body : Expr (ty :: Γ) ret) : Expr Γ (.arrow ty ret)
-  | app (fn : Expr Γ (.arrow arg ret)) (arg : Expr Γ arg) : Expr Γ ret
-  | fix (e : Expr Γ (.arrow τ τ)) : Expr Γ τ
-deriving Repr
-
-namespace Expr
-
-inductive IsValue : Expr Γ τ → Prop
-  | tt : IsValue .tt
-  | ff : IsValue .ff
-  | zero : IsValue .zero
-  | succ : IsValue a → IsValue (.succ a)
-  | fn : IsValue (.abs ty body)
-
-def bvarShift : Expr (Γskip ++ Γ₁) τ → Expr (Γskip ++ Γshift ++ Γ₁) τ
+def Val.bvarShift : Val (Γskip ++ Γ₁) τ → Val (Γskip ++ Γshift ++ Γ₁) τ
   | .bvar n =>
-    cast (congr rfl Fin2.extend.eq.symm) $ .bvar (Fin2.extend n)
+    cast (congr rfl Fin.extend.eq.symm) $ .bvar (Fin.castAdd n)
   | .abs ty body => .abs ty (body.bvarShift (Γskip := ty :: Γskip))
   | .app a b => .app a.bvarShift b.bvarShift
   | .eif c t f => .eif c.bvarShift t.bvarShift f.bvarShift
@@ -93,5 +72,5 @@ def replace (body : Expr (Γctx ++ [τ] ++ Γ) τo) (repl : Expr Γ τ) : Expr (
   | .ff => .ff
   | .zero => .zero
 
-def β : Expr (τ :: Γ) τo → Expr Γ τ → Expr Γ τo := replace (Γctx := [])
+
 

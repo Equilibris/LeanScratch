@@ -1,34 +1,52 @@
 import LeanScratch.Fin2
-import Mathlib.Data.List.AList
 
-inductive Ty : Type
-  | t (n : Nat) : Ty
-  | arr : Ty → Ty → Ty
-  | var (n : Nat)
+namespace SysF
 
-namespace Ty
+inductive Ty : Nat → Type
+  | var (v : Fin2 n) : Ty n
+  | arr (dom ran : Ty n) : Ty n
+  | fa (v : Ty n.succ) : Ty n
 
-/- abbrev Mapping := AList (fun (_ : Nat) => Nat) -/
-/- def equiv (m : Mapping) : Ty → Ty → Prop -/
+def vShift
+    : {n z : Nat} → Fin2 (n + z) → Fin2 (n.succ + z)
+  | _, 0, v => .fs v
+  | _, _v+1, .fz => .fz -- For a strange reason if i use _ instead of _v it breaks?
+  | _, z+1, .fs v => .fs $ vShift (z := z) v
 
-inductive Check (f : Nat → Nat) : Ty → Ty → Prop
-  | t : Check f (t n) (t n)
-  | arr : Check f a₁ a₂ → Check f b₁ b₂ → Check f (arr a₁ b₁) (arr a₂ b₂)
-  | var : Check f (var n) (var $ f n)
+def Ty.bvarShift : Ty (n + z) → Ty (n.succ + z)
+  | .var v => .var (vShift v)
+  | .arr a b => .arr a.bvarShift b.bvarShift
+  | .fa v => .fa (v.bvarShift (z := z.succ))
 
-def Equiv (a b : Ty) : Prop := ∃ f, Function.Bijective f → Check f a b
+def Ty.replace.bvar
+    (repl : Ty nAnte)
+    (nPre : Nat)
+    : (nMid : Nat)
+    → (n : Fin2 (nMid + 1 + nAnte))
+    → Ty (nPre + nMid + nAnte)
+  | _, _ => sorry
+  /- | _, 0, .fz, repl   => repl -/
+  /- | _, 0, .fs v, repl => .var v -/
+  /- | _, z+1, .fs _, _  => sorry -/
+  /- | _, z+1, .fz, _    => .var .fz -/
 
-def value : Ty → Nat
-  | t _ => 0
-  | var v => v.succ
-  | arr a b => a.value + 2 * b.value
+def Ty.replace : Ty (n.succ + z) → Ty n → Ty (n + z)
+  | .var v, repl => Ty.replace.bvar v repl
+  | .arr a b, repl => .arr (a.replace repl) (b.replace repl)
+  | .fa v, repl => .fa $ v.replace (z := z.succ) repl
 
-end Ty
+inductive Expr : {n : Nat} → List (Ty n) → Ty n → Type
+  | bvar idx : Expr Γ (Γ.getFin2 idx)
+  | abs (ty : Ty n) (body : Expr (ty :: Γ) ret) : Expr Γ (.arr ty ret)
+  | app (fn : Expr Γ (.arr arg ret)) (arg : Expr Γ arg) : Expr Γ ret
 
-inductive Stx : Nat → Type
-  | abs (ty : Option Ty) (body : Stx n.succ) : Stx n
-  | app (a b : Stx n) : Stx n
-  | bvar : Fin2 n → Stx n
+  | tapp
+    {n : Nat} {Γ : List (Ty n)} {body : Ty n.succ}
+    (fn : Expr Γ (.fa body)) (t : Ty n)
+    : Expr Γ (body.replace (z := 0) t)
+  | tabs
+    (body : Expr (Γ.map (Ty.bvarShift (z := 0))) ot)
+    : Expr Γ (.fa ot)
 
 
 

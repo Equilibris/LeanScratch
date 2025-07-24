@@ -81,5 +81,20 @@ instance : PartialOrder (Fin2 n) where
   le_trans _ _ _ := Nat.le_trans
   le_antisymm a b ha hb := toNat_eq $ Nat.le_antisymm ha hb
 
+def extend {c : List α} : {a b : List α} → Fin2 (a ++ c).length → Fin2 (a ++ b ++ c).length
+  | [], [], x => x
+  | [], _ :: tb, v => .fs $ extend v
+  | _ :: ta, b, .fz => .fz
+  | _ :: ta, b, .fs v => .fs $ extend v
+
+theorem extend.eq {c : List α}
+    : {a b : List α}
+    → {i : Fin2 (a ++ c).length}
+    → (a ++ c).getFin2 i = (a ++ b ++ c).getFin2 (@extend _ c a b i) := by
+  intro a b i
+  induction a, b, i using extend.induct
+  <;> unfold extend
+  any_goals rfl
+  all_goals assumption
 
 

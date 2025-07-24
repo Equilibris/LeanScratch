@@ -46,3 +46,5 @@ example {A : Type} {a b : A} : a = b ↔ Eq' a b := ⟨ (·.rec λ _ ↦ id), (�
 inductive Action : Type 1
   | handle : (a : Type 0) → (a → Action) → Action
 
+def list : (n : Nat) × n.repeat (· × A) Unit
+

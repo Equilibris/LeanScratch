@@ -1,4 +1,5 @@
 import Mathlib.Order.Lattice
+import Mathlib.Logic.Function.Defs
 import LeanScratch.Domain.ChainTrellis
 import LeanScratch.Domain.Continous
 import LeanScratch.Domain.ProdDom
@@ -190,9 +191,16 @@ def mp' :  CFunc (CFunc A B × A) B where
   f := mp
   continous := by infer_instance
 
+def id : CFunc A A where
+  f := _root_.id
+  continous := by infer_instance
+
 def comp (bc : CFunc B C) (ab : CFunc A B) : CFunc A C where
   f := bc.f ∘ ab.f
   continous := by infer_instance
+
+@[simp]
+theorem comp_assoc [Dom D] (f : CFunc C D) (g : CFunc B C) (h : CFunc A B) : (f.comp g).comp h = f.comp (g.comp h) := by rfl
 
 def const (v : B) : CFunc A B where
   f := Function.const A v
